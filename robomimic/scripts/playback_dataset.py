@@ -69,6 +69,7 @@ import random
 import h5py
 import imageio
 import numpy as np
+
 import robomimic
 import robomimic.utils.env_utils as EnvUtils
 import robomimic.utils.file_utils as FileUtils
@@ -159,9 +160,7 @@ def playback_trajectory_with_env(
                             camera_name=cam_name,
                         )
                     )
-                video_img = np.concatenate(
-                    video_img, axis=1
-                )  # concatenate horizontally
+                video_img = np.concatenate(video_img, axis=1)  # concatenate horizontally
                 video_writer.append_data(video_img)
             video_count += 1
 
@@ -190,9 +189,7 @@ def playback_trajectory_with_obs(
         depth_names (list): determines which depth observations are used for rendering (if any).
         first (bool): if True, only use the first frame of each episode.
     """
-    assert image_names is not None, (
-        "error: must specify at least one image observation to use in @image_names"
-    )
+    assert image_names is not None, "error: must specify at least one image observation to use in @image_names"
     video_count = 0
 
     if depth_names is not None:
@@ -243,14 +240,10 @@ def playback_dataset(args):
 
     if args.use_obs:
         assert write_video, "playback with observations can only write to video"
-        assert not args.use_actions, (
-            "playback with observations is offline and does not support action playback"
-        )
+        assert not args.use_actions, "playback with observations is offline and does not support action playback"
 
     if args.render_depth_names is not None:
-        assert args.use_obs, (
-            "depth observations can only be visualized from observations currently"
-        )
+        assert args.use_obs, "depth observations can only be visualized from observations currently"
 
     # create environment only if not playing back with observations
     if not args.use_obs:
@@ -265,9 +258,7 @@ def playback_dataset(args):
         ObsUtils.initialize_obs_utils_with_obs_specs(obs_modality_specs=dummy_spec)
 
         env_meta = FileUtils.get_env_metadata_from_dataset(dataset_path=args.dataset)
-        env = EnvUtils.create_env_from_metadata(
-            env_meta=env_meta, render=args.render, render_offscreen=write_video
-        )
+        env = EnvUtils.create_env_from_metadata(env_meta=env_meta, render=args.render, render_offscreen=write_video)
 
         # some operations for playback are robosuite-specific, so determine if this environment is a robosuite env
         is_robosuite_env = EnvUtils.is_robosuite_env(env_meta)
@@ -277,10 +268,7 @@ def playback_dataset(args):
     # list of all demonstration episodes (sorted in increasing number order)
     if args.filter_key is not None:
         print("using filter key: {}".format(args.filter_key))
-        demos = [
-            elem.decode("utf-8")
-            for elem in np.array(f["mask/{}".format(args.filter_key)])
-        ]
+        demos = [elem.decode("utf-8") for elem in np.array(f["mask/{}".format(args.filter_key)])]
     else:
         demos = list(f["data"].keys())
     inds = np.argsort([int(elem[5:]) for elem in demos])
@@ -316,9 +304,7 @@ def playback_dataset(args):
         initial_state = dict(states=states[0])
         if is_robosuite_env:
             initial_state["model"] = f["data/{}".format(ep)].attrs["model_file"]
-            initial_state["ep_meta"] = f["data/{}".format(ep)].attrs.get(
-                "ep_meta", None
-            )
+            initial_state["ep_meta"] = f["data/{}".format(ep)].attrs.get("ep_meta", None)
 
         # supply actions if using open-loop action playback
         actions = None

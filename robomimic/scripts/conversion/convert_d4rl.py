@@ -34,6 +34,7 @@ import d4rl
 import gym
 import h5py
 import numpy as np
+
 import robomimic
 from robomimic.envs.env_gym import EnvGym
 from robomimic.utils.log_utils import custom_tqdm
@@ -75,9 +76,7 @@ if __name__ == "__main__":
     write_folder = os.path.join(base_folder, "converted")
     if not os.path.exists(write_folder):
         os.makedirs(write_folder)
-    output_path = os.path.join(
-        base_folder, "converted", "{}.hdf5".format(args.env.replace("-", "_"))
-    )
+    output_path = os.path.join(base_folder, "converted", "{}.hdf5".format(args.env.replace("-", "_")))
     f_sars = h5py.File(output_path, "w")
     f_sars_grp = f_sars.create_group("data")
 
@@ -132,16 +131,8 @@ if __name__ == "__main__":
             ctr = 0
             traj = dict(obs=[], next_obs=[], actions=[], rewards=[], dones=[])
 
-    print(
-        "\nExcluding {} samples at end of file due to no trajectory truncation.".format(
-            len(traj["actions"])
-        )
-    )
-    print(
-        "Wrote {} trajectories to new converted hdf5 at {}\n".format(
-            num_traj, output_path
-        )
-    )
+    print("\nExcluding {} samples at end of file due to no trajectory truncation.".format(len(traj["actions"])))
+    print("Wrote {} trajectories to new converted hdf5 at {}\n".format(num_traj, output_path))
 
     # metadata
     f_sars_grp.attrs["total"] = total_samples

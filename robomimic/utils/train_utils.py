@@ -59,25 +59,17 @@ def get_exp_dir(config, auto_remove_exp_dir=False, resume=False):
         base_output_dir = os.path.join(robomimic.__path__[0], base_output_dir)
     base_output_dir = os.path.join(base_output_dir, config.experiment.name)
     if resume:
-        assert os.path.exists(base_output_dir), (
-            "Resuming training run, but output dir {} does not exist".format(
-                base_output_dir
-            )
+        assert os.path.exists(base_output_dir), "Resuming training run, but output dir {} does not exist".format(
+            base_output_dir
         )
         subdir_lst = os.listdir(base_output_dir)
         time_str = sorted(subdir_lst)[-1]  # get the most recent subdirectory
         assert os.path.isdir(os.path.join(base_output_dir, time_str)), (
-            "Found item {} that is not a subdirectory in {}".format(
-                time_str, base_output_dir
-            )
+            "Found item {} that is not a subdirectory in {}".format(time_str, base_output_dir)
         )
     elif os.path.exists(base_output_dir):
         if not auto_remove_exp_dir:
-            ans = input(
-                "WARNING: model directory ({}) already exists! \noverwrite? (y/n)\n".format(
-                    base_output_dir
-                )
-            )
+            ans = input("WARNING: model directory ({}) already exists! \noverwrite? (y/n)\n".format(base_output_dir))
         else:
             ans = "y"
         if ans == "y":
@@ -130,9 +122,7 @@ def load_data_for_training(config, obs_keys):
     # load the dataset into memory
     if config.experiment.validate:
         # assert not config.train.hdf5_normalize_obs, "no support for observation normalization with validation data yet"
-        assert (train_filter_by_attribute is not None) and (
-            valid_filter_by_attribute is not None
-        ), (
+        assert (train_filter_by_attribute is not None) and (valid_filter_by_attribute is not None), (
             "did not specify filter keys corresponding to train and valid split in dataset"
             " - please fill config.train.hdf5_filter_key and config.train.hdf5_validation_filter_key"
         )
@@ -151,16 +141,10 @@ def load_data_for_training(config, obs_keys):
             assert set(train_demo_keys).isdisjoint(set(valid_demo_keys)), (
                 "training demonstrations overlap with validation demonstrations!"
             )
-        train_dataset = dataset_factory(
-            config, obs_keys, filter_by_attribute=train_filter_by_attribute
-        )
-        valid_dataset = dataset_factory(
-            config, obs_keys, filter_by_attribute=valid_filter_by_attribute
-        )
+        train_dataset = dataset_factory(config, obs_keys, filter_by_attribute=train_filter_by_attribute)
+        valid_dataset = dataset_factory(config, obs_keys, filter_by_attribute=valid_filter_by_attribute)
     else:
-        train_dataset = dataset_factory(
-            config, obs_keys, filter_by_attribute=train_filter_by_attribute
-        )
+        train_dataset = dataset_factory(config, obs_keys, filter_by_attribute=train_filter_by_attribute)
         valid_dataset = None
 
     return train_dataset, valid_dataset
@@ -216,12 +200,8 @@ def dataset_factory(config, obs_keys, filter_by_attribute=None, dataset_path=Non
     )
 
     ds_kwargs["hdf5_path"] = [ds_cfg["path"] for ds_cfg in config.train.data]
-    ds_kwargs["filter_by_attribute"] = [
-        ds_cfg.get("filter_key", filter_by_attribute) for ds_cfg in config.train.data
-    ]
-    ds_kwargs["demo_limit"] = [
-        ds_cfg.get("demo_limit", None) for ds_cfg in config.train.data
-    ]
+    ds_kwargs["filter_by_attribute"] = [ds_cfg.get("filter_key", filter_by_attribute) for ds_cfg in config.train.data]
+    ds_kwargs["demo_limit"] = [ds_cfg.get("demo_limit", None) for ds_cfg in config.train.data]
     ds_weights = [ds_cfg.get("weight", 1.0) for ds_cfg in config.train.data]
 
     meta_ds_kwargs = dict()
@@ -473,9 +453,7 @@ def rollout_with_stats(
     all_rollout_logs = OrderedDict()
 
     # handle paths and create writers for video writing
-    assert (video_path is None) or (video_dir is None), (
-        "rollout_with_stats: can't specify both video path and dir"
-    )
+    assert (video_path is None) or (video_dir is None), "rollout_with_stats: can't specify both video path and dir"
     write_video = (video_path is not None) or (video_dir is not None)
     video_paths = OrderedDict()
     video_writers = OrderedDict()
@@ -487,9 +465,7 @@ def rollout_with_stats(
     if video_dir is not None:
         # video is written per env
         video_str = "_epoch_{}.mp4".format(epoch) if epoch is not None else ".mp4"
-        video_paths = {
-            k: os.path.join(video_dir, "{}{}".format(k, video_str)) for k in envs
-        }
+        video_paths = {k: os.path.join(video_dir, "{}{}".format(k, video_str)) for k in envs}
         video_writers = {k: imageio.get_writer(video_paths[k], fps=20) for k in envs}
 
     for env_key, env in envs.items():
@@ -532,11 +508,7 @@ def rollout_with_stats(
             num_success += rollout_info["Success_Rate"]
 
             if verbose:
-                print(
-                    "Episode {}, horizon={}, num_success={}".format(
-                        ep_i + 1, horizon, num_success
-                    )
-                )
+                print("Episode {}, horizon={}, num_success={}".format(ep_i + 1, horizon, num_success))
                 print(json.dumps(rollout_info, sort_keys=True, indent=4))
 
         if video_dir is not None:
@@ -544,10 +516,7 @@ def rollout_with_stats(
             env_video_writer.close()
 
         # average metric across all episodes
-        rollout_logs = dict(
-            (k, [rollout_logs[i][k] for i in range(len(rollout_logs))])
-            for k in rollout_logs[0]
-        )
+        rollout_logs = dict((k, [rollout_logs[i][k] for i in range(len(rollout_logs))]) for k in rollout_logs[0])
         rollout_logs_mean = dict((k, np.mean(v)) for k, v in rollout_logs.items())
         rollout_logs_mean["Time_Episode"] = (
             np.sum(rollout_logs["time"]) / 60.0
@@ -609,9 +578,7 @@ def should_save_from_rollout_logs(
             best_return[env_name] = rollout_logs["Return"]
             if save_on_best_rollout_return:
                 # save checkpoint if achieve new best return
-                epoch_ckpt_name += "_{}_return_{}".format(
-                    env_name, best_return[env_name]
-                )
+                epoch_ckpt_name += "_{}_return_{}".format(env_name, best_return[env_name])
                 should_save_ckpt = True
                 ckpt_reason = "return"
 
@@ -619,9 +586,7 @@ def should_save_from_rollout_logs(
             best_success_rate[env_name] = rollout_logs["Success_Rate"]
             if save_on_best_rollout_success_rate:
                 # save checkpoint if achieve new best success rate
-                epoch_ckpt_name += "_{}_success_{}".format(
-                    env_name, best_success_rate[env_name]
-                )
+                epoch_ckpt_name += "_{}_success_{}".format(env_name, best_success_rate[env_name])
                 should_save_ckpt = True
                 ckpt_reason = "success"
 
@@ -688,9 +653,7 @@ def save_model(
         params["obs_normalization_stats"] = TensorUtils.to_list(obs_normalization_stats)
     if action_normalization_stats is not None:
         action_normalization_stats = deepcopy(action_normalization_stats)
-        params["action_normalization_stats"] = TensorUtils.to_list(
-            action_normalization_stats
-        )
+        params["action_normalization_stats"] = TensorUtils.to_list(action_normalization_stats)
     torch.save(params, ckpt_path)
     print("save checkpoint to {}".format(ckpt_path))
 
@@ -755,9 +718,7 @@ def run_epoch(
         # process batch for training
         t = time.time()
         input_batch = model.process_batch_for_training(batch)
-        input_batch = model.postprocess_batch_for_training(
-            input_batch, obs_normalization_stats=obs_normalization_stats
-        )
+        input_batch = model.postprocess_batch_for_training(input_batch, obs_normalization_stats=obs_normalization_stats)
         timing_stats["Process_Batch"].append(time.time() - t)
 
         # forward and backward pass

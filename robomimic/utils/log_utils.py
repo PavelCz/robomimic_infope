@@ -93,11 +93,7 @@ class DataLogger(object):
                     )
 
                     # set up info for identifying experiment
-                    wandb_config = {
-                        k: v
-                        for (k, v) in config.meta.items()
-                        if k not in ["hp_keys", "hp_values"]
-                    }
+                    wandb_config = {k: v for (k, v) in config.meta.items() if k not in ["hp_keys", "hp_values"]}
                     for k, v in zip(config.meta["hp_keys"], config.meta["hp_values"]):
                         wandb_config[k] = v
                     if "algo" not in wandb_config:
@@ -106,11 +102,7 @@ class DataLogger(object):
 
                     break
                 except Exception as e:
-                    log_warning(
-                        "wandb initialization error (attempt #{}): {}".format(
-                            attempt + 1, e
-                        )
-                    )
+                    log_warning("wandb initialization error (attempt #{}): {}".format(attempt + 1, e))
                     self._wandb_logger = None
                     time.sleep(30)
 
@@ -129,9 +121,7 @@ class DataLogger(object):
 
         if data_type == "scalar":
             # maybe update internal cache if logging stats for this key
-            if (
-                log_stats or k in self._data
-            ):  # any key that we're logging or previously logged
+            if log_stats or k in self._data:  # any key that we're logging or previously logged
                 if k not in self._data:
                     self._data[k] = []
                 self._data[k].append(v)
@@ -148,9 +138,7 @@ class DataLogger(object):
             elif data_type == "image":
                 if len(v.shape) == 3:
                     v = v[None, ...]
-                self._tb_logger.add_images(
-                    k, img_tensor=v, global_step=epoch, dataformats="NHWC"
-                )
+                self._tb_logger.add_images(k, img_tensor=v, global_step=epoch, dataformats="NHWC")
 
         if self._wandb_logger is not None:
             try:
@@ -159,9 +147,7 @@ class DataLogger(object):
                     if log_stats:
                         stats = self.get_stats(k)
                         for stat_k, stat_v in stats.items():
-                            self._wandb_logger.log(
-                                {"{}/{}".format(k, stat_k): stat_v}, step=epoch
-                            )
+                            self._wandb_logger.log({"{}/{}".format(k, stat_k): stat_v}, step=epoch)
                 elif data_type == "image":
                     import wandb
 
@@ -237,9 +223,7 @@ def log_warning(message, color="yellow", print_now=True):
             addition to adding it to the global warning buffer
     """
     global WARNINGS_BUFFER
-    buffer_message = colored(
-        "ROBOMIMIC WARNING(\n{}\n)".format(textwrap.indent(message, "    ")), color
-    )
+    buffer_message = colored("ROBOMIMIC WARNING(\n{}\n)".format(textwrap.indent(message, "    ")), color)
     WARNINGS_BUFFER.append(buffer_message)
     if print_now:
         print(buffer_message)

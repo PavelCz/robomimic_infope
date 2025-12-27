@@ -83,9 +83,7 @@ class EnvRobosuite(EB.EnvBase):
         # robosuite version check
         self._is_v1 = robosuite.__version__.split(".")[0] == "1"
         if self._is_v1:
-            assert int(robosuite.__version__.split(".")[1]) >= 2, (
-                "only support robosuite v0.3 and v1.2+"
-            )
+            assert int(robosuite.__version__.split(".")[1]) >= 2, "only support robosuite v0.3 and v1.2+"
 
         kwargs = deepcopy(kwargs)
 
@@ -128,9 +126,7 @@ class EnvRobosuite(EB.EnvBase):
             # Make sure joint position observations and eef vel observations are active
             for ob_name in self.env.observation_names:
                 if ("joint_pos" in ob_name) or ("eef_vel" in ob_name):
-                    self.env.modify_observable(
-                        observable_name=ob_name, attribute="active", modifier=True
-                    )
+                    self.env.modify_observable(observable_name=ob_name, attribute="active", modifier=True)
 
     def step(self, action):
         """
@@ -207,12 +203,8 @@ class EnvRobosuite(EB.EnvBase):
             self.env.sim.reset()
             if not self._is_v1:
                 # hide teleop visualization after restoring from model
-                self.env.sim.model.site_rgba[self.env.eef_site_id] = np.array(
-                    [0.0, 0.0, 0.0, 0.0]
-                )
-                self.env.sim.model.site_rgba[self.env.eef_cylinder_id] = np.array(
-                    [0.0, 0.0, 0.0, 0.0]
-                )
+                self.env.sim.model.site_rgba[self.env.eef_site_id] = np.array([0.0, 0.0, 0.0, 0.0])
+                self.env.sim.model.site_rgba[self.env.eef_cylinder_id] = np.array([0.0, 0.0, 0.0, 0.0])
         if "states" in state:
             self.env.sim.set_state_from_flattened(state["states"])
             self.env.sim.forward()
@@ -237,18 +229,14 @@ class EnvRobosuite(EB.EnvBase):
         """
         # if camera_name is None, infer from initial env kwargs
         if camera_name is None:
-            camera_name = sorted(self._init_kwargs.get("camera_names", ["agentview"]))[
-                0
-            ]
+            camera_name = sorted(self._init_kwargs.get("camera_names", ["agentview"]))[0]
 
         if mode == "human":
             cam_id = self.env.sim.model.camera_name2id(camera_name)
             self.env.viewer.set_camera(cam_id)
             return self.env.render()
         elif mode == "rgb_array":
-            im = self.env.sim.render(
-                height=height, width=width, camera_name=camera_name
-            )
+            im = self.env.sim.render(height=height, width=width, camera_name=camera_name)
             # if self.use_depth_obs:
             #     # render() returns a tuple when self.use_depth_obs=True
             #     return im[0][::-1]
@@ -265,21 +253,13 @@ class EnvRobosuite(EB.EnvBase):
                 as a dictionary. If not provided, will be queried from robosuite.
         """
         if di is None:
-            di = (
-                self.env._get_observations(force_update=True)
-                if self._is_v1
-                else self.env._get_observation()
-            )
+            di = self.env._get_observations(force_update=True) if self._is_v1 else self.env._get_observation()
         ret = {}
         for k in di:
-            if (k in ObsUtils.OBS_KEYS_TO_MODALITIES) and ObsUtils.key_is_obs_modality(
-                key=k, obs_modality="rgb"
-            ):
+            if (k in ObsUtils.OBS_KEYS_TO_MODALITIES) and ObsUtils.key_is_obs_modality(key=k, obs_modality="rgb"):
                 # by default images from mujoco are flipped in height
                 ret[k] = di[k][::-1].copy()
-            elif (
-                k in ObsUtils.OBS_KEYS_TO_MODALITIES
-            ) and ObsUtils.key_is_obs_modality(key=k, obs_modality="depth"):
+            elif (k in ObsUtils.OBS_KEYS_TO_MODALITIES) and ObsUtils.key_is_obs_modality(key=k, obs_modality="depth"):
                 # by default depth images from mujoco are flipped in height
                 ret[k] = di[k][::-1].copy()
                 if len(ret[k].shape) == 2:
@@ -298,11 +278,7 @@ class EnvRobosuite(EB.EnvBase):
                 # ensures that we don't accidentally add robot wrist images a second time
                 pf = robot.robot_model.naming_prefix
                 for k in di:
-                    if (
-                        k.startswith(pf)
-                        and (k not in ret)
-                        and (not k.endswith("proprio-state"))
-                    ):
+                    if k.startswith(pf) and (k not in ret) and (not k.endswith("proprio-state")):
                         ret[k] = np.array(di[k])
         else:
             # minimal proprioception for older versions of robosuite
@@ -574,9 +550,7 @@ class EnvRobosuite(EB.EnvBase):
         return cls(
             env_name=env_name,
             render=(False if render is None else render),
-            render_offscreen=(
-                has_camera if render_offscreen is None else render_offscreen
-            ),
+            render_offscreen=(has_camera if render_offscreen is None else render_offscreen),
             use_image_obs=(has_camera if use_image_obs is None else use_image_obs),
             use_depth_obs=use_depth_obs,
             **kwargs,
@@ -602,6 +576,4 @@ class EnvRobosuite(EB.EnvBase):
         """
         Pretty-print env description.
         """
-        return (
-            self.name + "\n" + json.dumps(self._init_kwargs, sort_keys=True, indent=4)
-        )
+        return self.name + "\n" + json.dumps(self._init_kwargs, sort_keys=True, indent=4)

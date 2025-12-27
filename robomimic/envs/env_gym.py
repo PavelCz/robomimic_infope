@@ -203,9 +203,7 @@ class EnvGym(EB.EnvBase):
         This is the same as @env_meta - environment metadata stored in hdf5 datasets,
         and used in utils/env_utils.py.
         """
-        return dict(
-            env_name=self.name, type=self.type, env_kwargs=deepcopy(self._init_kwargs)
-        )
+        return dict(env_name=self.name, type=self.type, env_kwargs=deepcopy(self._init_kwargs))
 
     @classmethod
     def create_for_data_processing(
@@ -266,6 +264,4 @@ class EnvGym(EB.EnvBase):
         """
         Pretty-print env description.
         """
-        return (
-            self.name + "\n" + json.dumps(self._init_kwargs, sort_keys=True, indent=4)
-        )
+        return self.name + "\n" + json.dumps(self._init_kwargs, sort_keys=True, indent=4)

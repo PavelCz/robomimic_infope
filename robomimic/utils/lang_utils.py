@@ -2,15 +2,11 @@ import os
 
 from transformers import AutoModel, AutoTokenizer, CLIPTextModelWithProjection, pipeline
 
-os.environ["TOKENIZERS_PARALLELISM"] = (
-    "true"  # needed to suppress warning about potential deadlock
-)
+os.environ["TOKENIZERS_PARALLELISM"] = "true"  # needed to suppress warning about potential deadlock
 tokenizer = "openai/clip-vit-large-patch14"  # "openai/clip-vit-base-patch32"
 lang_emb_model = CLIPTextModelWithProjection.from_pretrained(
     tokenizer,
-    cache_dir=os.path.expanduser(
-        os.path.join(os.environ.get("HF_HOME", "~/tmp"), "clip")
-    ),
+    cache_dir=os.path.expanduser(os.path.join(os.environ.get("HF_HOME", "~/tmp"), "clip")),
 ).eval()
 tz = AutoTokenizer.from_pretrained(tokenizer, TOKENIZERS_PARALLELISM=True)
 

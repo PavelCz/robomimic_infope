@@ -81,13 +81,14 @@ from queue import Empty
 import h5py
 import numpy as np
 import psutil
+from tqdm import tqdm
+
 import robomimic.macros as Macros
 import robomimic.utils.env_utils as EnvUtils
 import robomimic.utils.file_utils as FileUtils
 import robomimic.utils.tensor_utils as TensorUtils
 from robomimic.envs.env_base import EnvBase
 from robomimic.scripts.dataset_states_to_obs import extract_trajectory, get_camera_info
-from tqdm import tqdm
 
 try:
     import mimicgen
@@ -95,9 +96,7 @@ except ImportError:
     print("WARNING: could not import mimicgen envs")
 
 
-def process_demo_batch(
-    process_id, args, env_meta, work_queue, result_queue, progress_queue, gpu_id=None
-):
+def process_demo_batch(process_id, args, env_meta, work_queue, result_queue, progress_queue, gpu_id=None):
     """
     Process demonstrations from a work queue until the queue is empty.
 
@@ -154,12 +153,8 @@ def process_demo_batch(
 
             # prepare states to reload from
             is_robosuite_env = EnvUtils.is_robosuite_env(env_meta)
-            is_simpler_env = EnvUtils.is_simpler_env(
-                env_meta
-            ) or EnvUtils.is_simpler_ov_env(env_meta)
-            is_factory_env = EnvUtils.is_factory_env(
-                env_meta
-            ) or EnvUtils.is_furniture_sim_env(env_meta)
+            is_simpler_env = EnvUtils.is_simpler_env(env_meta) or EnvUtils.is_simpler_ov_env(env_meta)
+            is_factory_env = EnvUtils.is_factory_env(env_meta) or EnvUtils.is_furniture_sim_env(env_meta)
 
             if is_simpler_env or is_factory_env:
                 # states are dictionaries - make list of dictionaries
@@ -205,14 +200,10 @@ def process_demo_batch(
             #            consistent as well
             ep_data_grp = data_grp.create_group(ep)
             ep_data_grp.create_dataset("actions", data=np.array(traj["actions"]))
-            ep_data_grp.create_dataset(
-                "actions_abs", data=np.array(traj["actions_abs"])
-            )
+            ep_data_grp.create_dataset("actions_abs", data=np.array(traj["actions_abs"]))
             if is_simpler_env or is_factory_env:
                 for k in traj["states"]:
-                    ep_data_grp.create_dataset(
-                        "states/{}".format(k), data=np.array(traj["states"][k])
-                    )
+                    ep_data_grp.create_dataset("states/{}".format(k), data=np.array(traj["states"][k]))
             else:
                 ep_data_grp.create_dataset("states", data=np.array(traj["states"]))
             ep_data_grp.create_dataset("rewards", data=np.array(traj["rewards"]))
@@ -225,9 +216,7 @@ def process_demo_batch(
                         compression="gzip",
                     )
                 else:
-                    ep_data_grp.create_dataset(
-                        "obs/{}".format(k), data=np.array(traj["obs"][k])
-                    )
+                    ep_data_grp.create_dataset("obs/{}".format(k), data=np.array(traj["obs"][k]))
                 if not args.exclude_next_obs:
                     if args.compress:
                         ep_data_grp.create_dataset(
@@ -236,9 +225,7 @@ def process_demo_batch(
                             compression="gzip",
                         )
                     else:
-                        ep_data_grp.create_dataset(
-                            "next_obs/{}".format(k), data=np.array(traj["next_obs"][k])
-                        )
+                        ep_data_grp.create_dataset("next_obs/{}".format(k), data=np.array(traj["next_obs"][k]))
 
             # episode metadata
             if is_robosuite_env:
@@ -301,9 +288,7 @@ def get_gpu_allocation(num_procs, gpu_ids, procs_per_gpu=None):
                 # Need to reduce processes
                 excess = total_allocated_procs - num_procs
                 # Sort GPUs by number of processes (descending) to reduce from most loaded GPUs first
-                gpu_loads = sorted(
-                    enumerate(procs_per_gpu), key=lambda x: x[1], reverse=True
-                )
+                gpu_loads = sorted(enumerate(procs_per_gpu), key=lambda x: x[1], reverse=True)
 
                 for i in range(excess):
                     # Reduce processes from most loaded GPU
@@ -349,9 +334,7 @@ def dataset_states_to_obs_mp(args):
     # Apply start index if provided
     if args.start is not None:
         if args.start >= len(demos):
-            raise ValueError(
-                f"Start index {args.start} is larger than number of demos {len(demos)}"
-            )
+            raise ValueError(f"Start index {args.start} is larger than number of demos {len(demos)}")
         demos = demos[args.start :]
         original_demos = original_demos[args.start :]
 
@@ -367,8 +350,7 @@ def dataset_states_to_obs_mp(args):
     num_processes = min(args.num_procs, len(demos))
     if num_processes < args.num_procs:
         print(
-            f"\nWarning: Reducing number of processes from {args.num_procs} to {num_processes} "
-            f"to match number of demos"
+            f"\nWarning: Reducing number of processes from {args.num_procs} to {num_processes} to match number of demos"
         )
 
     # Initialize multiprocessing queues
@@ -388,18 +370,12 @@ def dataset_states_to_obs_mp(args):
     gpu_allocation = None
     if args.gpu_ids is not None:
         if len(args.gpu_ids) == 0:
-            print(
-                "Warning: --gpu_ids specified but no GPU IDs provided. Running without GPU allocation."
-            )
+            print("Warning: --gpu_ids specified but no GPU IDs provided. Running without GPU allocation.")
         else:
             # Get GPU allocation for the actual number of processes
-            gpu_allocation = get_gpu_allocation(
-                num_processes, args.gpu_ids, args.procs_per_gpu
-            )
+            gpu_allocation = get_gpu_allocation(num_processes, args.gpu_ids, args.procs_per_gpu)
 
-    print(
-        f"\nProcessing {len(demos)} demonstrations using {num_processes} processes..."
-    )
+    print(f"\nProcessing {len(demos)} demonstrations using {num_processes} processes...")
     if args.start is not None:
         print(f"Starting from demo index {args.start}")
     if args.n is not None:
@@ -466,9 +442,7 @@ def dataset_states_to_obs_mp(args):
         results = []
         demo_locations = {}  # Maps demo name to temp file location
         while not result_queue.empty():
-            temp_output, total_samples, num_success, processed_demos = (
-                result_queue.get()
-            )
+            temp_output, total_samples, num_success, processed_demos = result_queue.get()
             results.append((temp_output, total_samples, num_success))
             # Record which demos are in which temp files
             for demo in processed_demos:
@@ -523,9 +497,7 @@ def dataset_states_to_obs_mp(args):
     total_successes = sum(success for _, _, success in results)
 
     if args.use_actions:
-        print(
-            f"\nAction playback: got {total_successes} successes out of {len(demos)} demos.\n"
-        )
+        print(f"\nAction playback: got {total_successes} successes out of {len(demos)} demos.\n")
 
     # Get memory usage
     process = psutil.Process(os.getpid())
@@ -724,9 +696,7 @@ if __name__ == "__main__":
     if Macros.SLACK_TOKEN is not None and (not args.no_slack):
         from robomimic.scripts.give_slack_notification import give_slack_notif
 
-        msg = "Completed the following dataset extraction run!\nHostname: {}\n".format(
-            socket.gethostname()
-        )
+        msg = "Completed the following dataset extraction run!\nHostname: {}\n".format(socket.gethostname())
         msg += "```{}```".format(res_str)
         if important_stats is not None:
             msg += "\nExtraction Stats"

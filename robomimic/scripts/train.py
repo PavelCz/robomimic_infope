@@ -27,17 +27,18 @@ from collections import OrderedDict
 
 import numpy as np
 import psutil
+import torch
+from torch.utils.data import DataLoader
+
 import robomimic
 import robomimic.utils.env_utils as EnvUtils
 import robomimic.utils.file_utils as FileUtils
 import robomimic.utils.obs_utils as ObsUtils
 import robomimic.utils.torch_utils as TorchUtils
 import robomimic.utils.train_utils as TrainUtils
-import torch
 from robomimic.algo import RolloutPolicy, algo_factory
 from robomimic.config import config_factory
 from robomimic.utils.log_utils import DataLogger, PrintLogger, flush_warnings
-from torch.utils.data import DataLoader
 
 
 def train(config, device, resume=False):
@@ -54,9 +55,7 @@ def train(config, device, resume=False):
     print("\n============= New Training Run with Config =============")
     print(config)
     print("")
-    log_dir, ckpt_dir, video_dir, time_dir = TrainUtils.get_exp_dir(
-        config, resume=resume
-    )
+    log_dir, ckpt_dir, video_dir, time_dir = TrainUtils.get_exp_dir(config, resume=resume)
 
     # path for latest model and backup (to support @resume functionality)
     latest_model_path = os.path.join(time_dir, "last.pth")
@@ -81,9 +80,7 @@ def train(config, device, resume=False):
     for dataset_cfg in config.train.data:
         dataset_path = os.path.expanduser(dataset_cfg["path"])
         if not os.path.exists(dataset_path):
-            raise Exception(
-                "Dataset at provided path {} not found!".format(dataset_path)
-            )
+            raise Exception("Dataset at provided path {} not found!".format(dataset_path))
 
         # load basic metadata from training file
         print("\n============= Loaded Environment Metadata =============")
@@ -112,12 +109,7 @@ def train(config, device, resume=False):
         env_meta = env_meta_list[0].copy()
         env_meta["env_name"] = config.experiment.env
         env_meta_list = [env_meta]
-        print(
-            "=" * 30
-            + "\n"
-            + "Replacing Env to {}\n".format(env_meta["env_name"])
-            + "=" * 30
-        )
+        print("=" * 30 + "\n" + "Replacing Env to {}\n".format(env_meta["env_name"]) + "=" * 30)
 
     # create environment
     envs = OrderedDict()
@@ -151,9 +143,7 @@ def train(config, device, resume=False):
                 )
                 env = EnvUtils.create_env_from_metadata(**env_kwargs)
                 # handle environment wrappers
-                env = EnvUtils.wrap_env_from_config(
-                    env, config=config
-                )  # apply environment warpper, if applicable
+                env = EnvUtils.wrap_env_from_config(env, config=config)  # apply environment warpper, if applicable
                 return env
 
             for env_name in env_names:
@@ -169,9 +159,7 @@ def train(config, device, resume=False):
     print("")
 
     # load training data
-    trainset, validset = TrainUtils.load_data_for_training(
-        config, obs_keys=shape_meta["all_obs_keys"]
-    )
+    trainset, validset = TrainUtils.load_data_for_training(config, obs_keys=shape_meta["all_obs_keys"])
     train_sampler = trainset.get_dataset_sampler()
     print("\n============= Training Dataset =============")
     print(trainset)
@@ -235,19 +223,15 @@ def train(config, device, resume=False):
                     config.algo[sub_algo].optim_params[k]["num_train_batches"] = (
                         len(trainset) if train_num_steps is None else train_num_steps
                     )
-                    config.algo[sub_algo].optim_params[k]["num_epochs"] = (
-                        config.train.num_epochs
-                    )
+                    config.algo[sub_algo].optim_params[k]["num_epochs"] = config.train.num_epochs
         if config.algo_name == "iris":
             for sub_algo in ["planner", "value"]:
                 # add info to optim_params of each net
                 for k in config.algo["value_planner"][sub_algo].optim_params:
-                    config.algo["value_planner"][sub_algo].optim_params[k][
-                        "num_train_batches"
-                    ] = len(trainset) if train_num_steps is None else train_num_steps
-                    config.algo["value_planner"][sub_algo].optim_params[k][
-                        "num_epochs"
-                    ] = config.train.num_epochs
+                    config.algo["value_planner"][sub_algo].optim_params[k]["num_train_batches"] = (
+                        len(trainset) if train_num_steps is None else train_num_steps
+                    )
+                    config.algo["value_planner"][sub_algo].optim_params[k]["num_epochs"] = config.train.num_epochs
 
     # setup for a new training run
     data_logger = DataLogger(
@@ -273,9 +257,7 @@ def train(config, device, resume=False):
         except Exception as e:
             print("got error: {} when loading from {}".format(e, latest_model_path))
             print("trying backup path {}".format(latest_model_backup_path))
-            ckpt_dict = FileUtils.load_dict_from_checkpoint(
-                ckpt_path=latest_model_backup_path
-            )
+            ckpt_dict = FileUtils.load_dict_from_checkpoint(ckpt_path=latest_model_backup_path)
         # load model weights and optimizer state
         model.deserialize(ckpt_dict["model"], load_optimizers=True)
         print("*" * 50)
@@ -309,12 +291,8 @@ def train(config, device, resume=False):
 
     # main training loop
     best_valid_loss = None
-    best_return = (
-        {k: -np.inf for k in envs} if config.experiment.rollout.enabled else None
-    )
-    best_success_rate = (
-        {k: -1.0 for k in envs} if config.experiment.rollout.enabled else None
-    )
+    best_return = {k: -np.inf for k in envs} if config.experiment.rollout.enabled else None
+    best_success_rate = {k: -1.0 for k in envs} if config.experiment.rollout.enabled else None
     last_ckpt_time = time.time()
 
     start_epoch = 1  # epoch numbers start at 1
@@ -392,14 +370,9 @@ def train(config, device, resume=False):
 
             # save checkpoint if achieve new best validation loss
             valid_check = "Loss" in step_log
-            if valid_check and (
-                best_valid_loss is None or (step_log["Loss"] <= best_valid_loss)
-            ):
+            if valid_check and (best_valid_loss is None or (step_log["Loss"] <= best_valid_loss)):
                 best_valid_loss = step_log["Loss"]
-                if (
-                    config.experiment.save.enabled
-                    and config.experiment.save.on_best_validation
-                ):
+                if config.experiment.save.enabled and config.experiment.save.on_best_validation:
                     epoch_ckpt_name += "_best_validation_{}".format(best_valid_loss)
                     should_save_ckpt = True
                     ckpt_reason = "valid" if ckpt_reason is None else ckpt_reason
@@ -408,14 +381,8 @@ def train(config, device, resume=False):
 
         # do rollouts at fixed rate or if it's time to save a new ckpt
         video_paths = None
-        rollout_check = (epoch % config.experiment.rollout.rate == 0) or (
-            should_save_ckpt and ckpt_reason == "time"
-        )
-        if (
-            config.experiment.rollout.enabled
-            and (epoch > config.experiment.rollout.warmstart)
-            and rollout_check
-        ):
+        rollout_check = (epoch % config.experiment.rollout.rate == 0) or (should_save_ckpt and ckpt_reason == "time")
+        if config.experiment.rollout.enabled and (epoch > config.experiment.rollout.warmstart) and rollout_check:
             # wrap model as a RolloutPolicy to prepare for rollouts
             rollout_model = RolloutPolicy(
                 model,
@@ -455,11 +422,7 @@ def train(config, device, resume=False):
                             log_stats=True,
                         )
 
-                print(
-                    "\nEpoch {} Rollouts took {}s (avg) with results:".format(
-                        epoch, rollout_logs["time"]
-                    )
-                )
+                print("\nEpoch {} Rollouts took {}s (avg) with results:".format(epoch, rollout_logs["time"]))
                 print("Env: {}".format(env_name))
                 print(json.dumps(rollout_logs, sort_keys=True, indent=4))
 
@@ -495,9 +458,7 @@ def train(config, device, resume=False):
                 model=model,
                 config=config,
                 env_meta=env_meta_list[0] if len(env_meta_list) == 1 else env_meta_list,
-                shape_meta=shape_meta_list[0]
-                if len(shape_meta_list) == 1
-                else shape_meta_list,
+                shape_meta=shape_meta_list[0] if len(shape_meta_list) == 1 else shape_meta_list,
                 variable_state=variable_state,
                 ckpt_path=os.path.join(ckpt_dir, epoch_ckpt_name + ".pth"),
                 obs_normalization_stats=obs_normalization_stats,
@@ -510,9 +471,7 @@ def train(config, device, resume=False):
             model=model,
             config=config,
             env_meta=env_meta_list[0] if len(env_meta_list) == 1 else env_meta_list,
-            shape_meta=shape_meta_list[0]
-            if len(shape_meta_list) == 1
-            else shape_meta_list,
+            shape_meta=shape_meta_list[0] if len(shape_meta_list) == 1 else shape_meta_list,
             variable_state=variable_state,
             ckpt_path=latest_model_path,
             obs_normalization_stats=obs_normalization_stats,

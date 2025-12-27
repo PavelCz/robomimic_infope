@@ -38,57 +38,39 @@ def robosuite_hyperparameters(config):
         Config: Modified config
     """
     ## save config - if and when to save checkpoints ##
-    config.experiment.save.enabled = (
-        True  # whether model saving should be enabled or disabled
-    )
-    config.experiment.save.every_n_seconds = (
-        None  # save model every n seconds (set to None to disable)
-    )
-    config.experiment.save.every_n_epochs = (
-        50  # save model every n epochs (set to None to disable)
-    )
+    config.experiment.save.enabled = True  # whether model saving should be enabled or disabled
+    config.experiment.save.every_n_seconds = None  # save model every n seconds (set to None to disable)
+    config.experiment.save.every_n_epochs = 50  # save model every n epochs (set to None to disable)
     config.experiment.save.epochs = []  # save model on these specific epochs
-    config.experiment.save.on_best_validation = (
-        False  # save models that achieve best validation score
-    )
-    config.experiment.save.on_best_rollout_return = (
-        False  # save models that achieve best rollout return
-    )
-    config.experiment.save.on_best_rollout_success_rate = (
-        True  # save models that achieve best success rate
-    )
+    config.experiment.save.on_best_validation = False  # save models that achieve best validation score
+    config.experiment.save.on_best_rollout_return = False  # save models that achieve best rollout return
+    config.experiment.save.on_best_rollout_success_rate = True  # save models that achieve best success rate
 
     # epoch definition - if not None, set an epoch to be this many gradient steps, else the full dataset size will be used
     config.experiment.epoch_every_n_steps = 100  # each epoch is 100 gradient steps
-    config.experiment.validation_epoch_every_n_steps = (
-        10  # each validation epoch is 10 gradient steps
-    )
+    config.experiment.validation_epoch_every_n_steps = 10  # each validation epoch is 10 gradient steps
 
     # envs to evaluate model on (assuming rollouts are enabled), to override the metadata stored in dataset
     config.experiment.env = None  # no need to set this (unless you want to override)
-    config.experiment.additional_envs = (
-        None  # additional environments that should get evaluated
-    )
+    config.experiment.additional_envs = None  # additional environments that should get evaluated
 
     ## rendering config ##
     config.experiment.render = False  # render on-screen or not
     config.experiment.render_video = True  # render evaluation rollouts to videos
-    config.experiment.keep_all_videos = False  # save all videos, instead of only saving those for saved model checkpoints
-    config.experiment.video_skip = (
-        5  # render video frame every n environment steps during rollout
+    config.experiment.keep_all_videos = (
+        False  # save all videos, instead of only saving those for saved model checkpoints
     )
+    config.experiment.video_skip = 5  # render video frame every n environment steps during rollout
 
     ## evaluation rollout config ##
     config.experiment.rollout.enabled = True  # enable evaluation rollouts
     config.experiment.rollout.n = 50  # number of rollouts per evaluation
-    config.experiment.rollout.horizon = 400  # set horizon based on length of demonstrations (can be obtained with scripts/get_dataset_info.py)
+    config.experiment.rollout.horizon = (
+        400  # set horizon based on length of demonstrations (can be obtained with scripts/get_dataset_info.py)
+    )
     config.experiment.rollout.rate = 50  # do rollouts every @rate epochs
-    config.experiment.rollout.warmstart = (
-        0  # number of epochs to wait before starting rollouts
-    )
-    config.experiment.rollout.terminate_on_success = (
-        True  # end rollout early after task success
-    )
+    config.experiment.rollout.warmstart = 0  # number of epochs to wait before starting rollouts
+    config.experiment.rollout.terminate_on_success = True  # end rollout early after task success
 
     ## dataset loader config ##
 
@@ -109,7 +91,9 @@ def robosuite_hyperparameters(config):
     config.train.hdf5_normalize_obs = False  # no obs normalization
 
     # if provided, demonstrations are filtered by the list of demo keys under "mask/@hdf5_filter_key"
-    config.train.hdf5_filter_key = "train"  # by default, use "train" and "valid" filter keys corresponding to train-valid split
+    config.train.hdf5_filter_key = (
+        "train"  # by default, use "train" and "valid" filter keys corresponding to train-valid split
+    )
     config.train.hdf5_validation_filter_key = "valid"
 
     # fetch sequences of length 10 from dataset for RNN training
@@ -146,26 +130,20 @@ def robosuite_hyperparameters(config):
 
     config.observation.encoder.rgb.core_class = "VisualCore"
     config.observation.encoder.rgb.core_kwargs.feature_dimension = 64
-    config.observation.encoder.rgb.core_kwargs.backbone_class = "ResNet18Conv"  # ResNet backbone for image observations (unused if no image observations)
-    config.observation.encoder.rgb.core_kwargs.backbone_kwargs.pretrained = (
-        False  # kwargs for visual core
+    config.observation.encoder.rgb.core_kwargs.backbone_class = (
+        "ResNet18Conv"  # ResNet backbone for image observations (unused if no image observations)
     )
+    config.observation.encoder.rgb.core_kwargs.backbone_kwargs.pretrained = False  # kwargs for visual core
     config.observation.encoder.rgb.core_kwargs.backbone_kwargs.input_coord_conv = False
     config.observation.encoder.rgb.core_kwargs.pool_class = (
         "SpatialSoftmax"  # Alternate options are "SpatialMeanPool" or None (no pooling)
     )
-    config.observation.encoder.rgb.core_kwargs.pool_kwargs.num_kp = (
-        32  # Default arguments for "SpatialSoftmax"
-    )
+    config.observation.encoder.rgb.core_kwargs.pool_kwargs.num_kp = 32  # Default arguments for "SpatialSoftmax"
     config.observation.encoder.rgb.core_kwargs.pool_kwargs.learnable_temperature = (
         False  # Default arguments for "SpatialSoftmax"
     )
-    config.observation.encoder.rgb.core_kwargs.pool_kwargs.temperature = (
-        1.0  # Default arguments for "SpatialSoftmax"
-    )
-    config.observation.encoder.rgb.core_kwargs.pool_kwargs.noise_std = (
-        0.0  # Default arguments for "SpatialSoftmax"
-    )
+    config.observation.encoder.rgb.core_kwargs.pool_kwargs.temperature = 1.0  # Default arguments for "SpatialSoftmax"
+    config.observation.encoder.rgb.core_kwargs.pool_kwargs.noise_std = 0.0  # Default arguments for "SpatialSoftmax"
 
     # if you prefer to use pre-trained visual representations, uncomment the following lines
     # R3M
@@ -196,9 +174,7 @@ def robosuite_hyperparameters(config):
         0.1  # factor to decay LR by (if epoch schedule non-empty)
     )
     config.algo.optim_params.policy.learning_rate.epoch_schedule = []  # epochs where LR decay occurs
-    config.algo.optim_params.policy.regularization.L2 = (
-        0.00  # L2 regularization strength
-    )
+    config.algo.optim_params.policy.regularization.L2 = 0.00  # L2 regularization strength
 
     # loss weights
     config.algo.loss.l2_weight = 1.0  # L2 loss weight
@@ -209,25 +185,21 @@ def robosuite_hyperparameters(config):
     config.algo.actor_layer_dims = ()  # empty MLP - go from RNN layer directly to action output
 
     # stochastic GMM policy
-    config.algo.gmm.enabled = (
-        True  # enable GMM policy - policy outputs GMM action distribution
-    )
+    config.algo.gmm.enabled = True  # enable GMM policy - policy outputs GMM action distribution
     config.algo.gmm.num_modes = 5  # number of GMM modes
     config.algo.gmm.min_std = 0.0001  # minimum std output from network
-    config.algo.gmm.std_activation = (
-        "softplus"  # activation to use for std output from policy net
-    )
+    config.algo.gmm.std_activation = "softplus"  # activation to use for std output from policy net
     config.algo.gmm.low_noise_eval = True  # low-std at test-time
 
     # rnn policy config
     config.algo.rnn.enabled = True  # enable RNN policy
-    config.algo.rnn.horizon = (
-        10  # unroll length for RNN - should usually match train.seq_length
-    )
+    config.algo.rnn.horizon = 10  # unroll length for RNN - should usually match train.seq_length
     config.algo.rnn.hidden_dim = 400  # hidden dimension size
     config.algo.rnn.rnn_type = "LSTM"  # rnn type - one of "LSTM" or "GRU"
     config.algo.rnn.num_layers = 2  # number of RNN layers that are stacked
-    config.algo.rnn.open_loop = False  # if True, action predictions are only based on a single observation (not sequence) + hidden state
+    config.algo.rnn.open_loop = (
+        False  # if True, action predictions are only based on a single observation (not sequence) + hidden state
+    )
     config.algo.rnn.kwargs.bidirectional = False  # rnn kwargs
 
     return config
@@ -244,57 +216,37 @@ def momart_hyperparameters(config):
         Config: Modified config
     """
     ## save config - if and when to save checkpoints ##
-    config.experiment.save.enabled = (
-        True  # whether model saving should be enabled or disabled
-    )
-    config.experiment.save.every_n_seconds = (
-        None  # save model every n seconds (set to None to disable)
-    )
-    config.experiment.save.every_n_epochs = (
-        3  # save model every n epochs (set to None to disable)
-    )
+    config.experiment.save.enabled = True  # whether model saving should be enabled or disabled
+    config.experiment.save.every_n_seconds = None  # save model every n seconds (set to None to disable)
+    config.experiment.save.every_n_epochs = 3  # save model every n epochs (set to None to disable)
     config.experiment.save.epochs = []  # save model on these specific epochs
-    config.experiment.save.on_best_validation = (
-        True  # save models that achieve best validation score
-    )
-    config.experiment.save.on_best_rollout_return = (
-        False  # save models that achieve best rollout return
-    )
-    config.experiment.save.on_best_rollout_success_rate = (
-        True  # save models that achieve best success rate
-    )
+    config.experiment.save.on_best_validation = True  # save models that achieve best validation score
+    config.experiment.save.on_best_rollout_return = False  # save models that achieve best rollout return
+    config.experiment.save.on_best_rollout_success_rate = True  # save models that achieve best success rate
 
     # epoch definition - if not None, set an epoch to be this many gradient steps, else the full dataset size will be used
     config.experiment.epoch_every_n_steps = None  # each epoch is 100 gradient steps
-    config.experiment.validation_epoch_every_n_steps = (
-        10  # each validation epoch is 10 gradient steps
-    )
+    config.experiment.validation_epoch_every_n_steps = 10  # each validation epoch is 10 gradient steps
 
     # envs to evaluate model on (assuming rollouts are enabled), to override the metadata stored in dataset
     config.experiment.env = None  # no need to set this (unless you want to override)
-    config.experiment.additional_envs = (
-        None  # additional environments that should get evaluated
-    )
+    config.experiment.additional_envs = None  # additional environments that should get evaluated
 
     ## rendering config ##
     config.experiment.render = False  # render on-screen or not
     config.experiment.render_video = True  # render evaluation rollouts to videos
-    config.experiment.keep_all_videos = False  # save all videos, instead of only saving those for saved model checkpoints
-    config.experiment.video_skip = (
-        5  # render video frame every n environment steps during rollout
+    config.experiment.keep_all_videos = (
+        False  # save all videos, instead of only saving those for saved model checkpoints
     )
+    config.experiment.video_skip = 5  # render video frame every n environment steps during rollout
 
     ## evaluation rollout config ##
     config.experiment.rollout.enabled = True  # enable evaluation rollouts
     config.experiment.rollout.n = 30  # number of rollouts per evaluation
     config.experiment.rollout.horizon = 1500  # maximum number of env steps per rollout
     config.experiment.rollout.rate = 3  # do rollouts every @rate epochs
-    config.experiment.rollout.warmstart = (
-        0  # number of epochs to wait before starting rollouts
-    )
-    config.experiment.rollout.terminate_on_success = (
-        True  # end rollout early after task success
-    )
+    config.experiment.rollout.warmstart = 0  # number of epochs to wait before starting rollouts
+    config.experiment.rollout.terminate_on_success = True  # end rollout early after task success
 
     ## dataset loader config ##
 
@@ -315,7 +267,9 @@ def momart_hyperparameters(config):
     config.train.hdf5_normalize_obs = False  # no obs normalization
 
     # if provided, demonstrations are filtered by the list of demo keys under "mask/@hdf5_filter_key"
-    config.train.hdf5_filter_key = "train"  # by default, use "train" and "valid" filter keys corresponding to train-valid split
+    config.train.hdf5_filter_key = (
+        "train"  # by default, use "train" and "valid" filter keys corresponding to train-valid split
+    )
     config.train.hdf5_validation_filter_key = "valid"
 
     # fetch sequences of length 10 from dataset for RNN training
@@ -364,9 +318,7 @@ def momart_hyperparameters(config):
         0.1  # factor to decay LR by (if epoch schedule non-empty)
     )
     config.algo.optim_params.policy.learning_rate.epoch_schedule = []  # epochs where LR decay occurs
-    config.algo.optim_params.policy.regularization.L2 = (
-        0.00  # L2 regularization strength
-    )
+    config.algo.optim_params.policy.regularization.L2 = 0.00  # L2 regularization strength
 
     # loss weights
     config.algo.loss.l2_weight = 1.0  # L2 loss weight
@@ -380,25 +332,21 @@ def momart_hyperparameters(config):
     )  # MLP layers between RNN layer and action output
 
     # stochastic GMM policy
-    config.algo.gmm.enabled = (
-        True  # enable GMM policy - policy outputs GMM action distribution
-    )
+    config.algo.gmm.enabled = True  # enable GMM policy - policy outputs GMM action distribution
     config.algo.gmm.num_modes = 5  # number of GMM modes
     config.algo.gmm.min_std = 0.01  # minimum std output from network
-    config.algo.gmm.std_activation = (
-        "softplus"  # activation to use for std output from policy net
-    )
+    config.algo.gmm.std_activation = "softplus"  # activation to use for std output from policy net
     config.algo.gmm.low_noise_eval = True  # low-std at test-time
 
     # rnn policy config
     config.algo.rnn.enabled = True  # enable RNN policy
-    config.algo.rnn.horizon = (
-        50  # unroll length for RNN - should usually match train.seq_length
-    )
+    config.algo.rnn.horizon = 50  # unroll length for RNN - should usually match train.seq_length
     config.algo.rnn.hidden_dim = 1200  # hidden dimension size
     config.algo.rnn.rnn_type = "LSTM"  # rnn type - one of "LSTM" or "GRU"
     config.algo.rnn.num_layers = 2  # number of RNN layers that are stacked
-    config.algo.rnn.open_loop = False  # if True, action predictions are only based on a single observation (not sequence) + hidden state
+    config.algo.rnn.open_loop = (
+        False  # if True, action predictions are only based on a single observation (not sequence) + hidden state
+    )
     config.algo.rnn.kwargs.bidirectional = False  # rnn kwargs
 
     return config
@@ -417,9 +365,7 @@ DATASET_TYPES = {
 }
 
 
-def get_config(
-    dataset_type="robosuite", dataset_path=None, output_dir=None, debug=False
-):
+def get_config(dataset_type="robosuite", dataset_path=None, output_dir=None, debug=False):
     """
     Construct config for training.
 
@@ -449,13 +395,9 @@ def get_config(
     config = config_factory(algo_name="bc")
 
     ### Experiment Config ###
-    config.experiment.name = (
-        f"{dataset_type}_bc_rnn_example"  # name of experiment used to make log files
-    )
+    config.experiment.name = f"{dataset_type}_bc_rnn_example"  # name of experiment used to make log files
     config.experiment.validate = True  # whether to do validation or not
-    config.experiment.logging.terminal_output_to_txt = (
-        False  # whether to log stdout to txt file
-    )
+    config.experiment.logging.terminal_output_to_txt = False  # whether to log stdout to txt file
     config.experiment.logging.log_tb = True  # enable tensorboard logging
 
     ### Train Config ###

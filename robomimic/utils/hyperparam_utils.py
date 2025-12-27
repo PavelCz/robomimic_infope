@@ -53,9 +53,7 @@ class ConfigGenerator(object):
         assert (wandb_proj_name is None) or isinstance(wandb_proj_name, str)
         self.wandb_proj_name = wandb_proj_name
 
-    def add_param(
-        self, key, name, group, values, value_names=None, hidename=False, prepend=False
-    ):
+    def add_param(self, key, name, group, values, value_names=None, hidename=False, prepend=False):
         """
         Add parameter to the hyperparameter sweep.
 
@@ -95,9 +93,7 @@ class ConfigGenerator(object):
         @add_param, @set_base_config_file, and @set_script_file.
         """
         assert len(self.parameters) > 0, "must add parameters using add_param first!"
-        generated_json_paths = self._generate_jsons(
-            override_base_name=override_base_name
-        )
+        generated_json_paths = self._generate_jsons(override_base_name=override_base_name)
         self._script_from_jsons(generated_json_paths)
 
     def _name_for_experiment(self, base_name, parameter_values, parameter_value_names):
@@ -126,9 +122,7 @@ class ConfigGenerator(object):
                 val_str = parameter_value_names[k]
             else:
                 val_str = parameter_values[k]
-                if isinstance(parameter_values[k], list) or isinstance(
-                    parameter_values[k], tuple
-                ):
+                if isinstance(parameter_values[k], list) or isinstance(parameter_values[k], tuple):
                     # convert list to string to avoid weird spaces and naming problems
                     val_str = "_".join([str(x) for x in parameter_values[k]])
             val_str = str(val_str)
@@ -167,9 +161,7 @@ class ConfigGenerator(object):
                 parameter_group_indices[group_id] = list(range(num_param_values))
             else:
                 assert len(parameter_group_indices[group_id]) == num_param_values, (
-                    "error: inconsistent number of parameter values in group with id {}".format(
-                        group_id
-                    )
+                    "error: inconsistent number of parameter values in group with id {}".format(group_id)
                 )
 
         keys = list(parameter_group_indices.keys())
@@ -210,9 +202,7 @@ class ConfigGenerator(object):
         first_key = list(parameter_ranges.keys())[0]
         num_settings = len(parameter_ranges[first_key])
         for k in parameter_ranges:
-            assert len(parameter_ranges[k]) == num_settings, (
-                "inconsistent number of values"
-            )
+            assert len(parameter_ranges[k]) == num_settings, "inconsistent number of values"
 
         return parameter_ranges, parameter_names
 
@@ -279,9 +269,7 @@ class ConfigGenerator(object):
             # populate list of identifying meta for logger;
             # see meta_config method in base_config.py for more info
             if self.wandb_proj_name is not None:
-                json_dict["experiment"]["logging"]["wandb_proj_name"] = (
-                    self.wandb_proj_name
-                )
+                json_dict["experiment"]["logging"]["wandb_proj_name"] = self.wandb_proj_name
             if "meta" not in json_dict:
                 json_dict["meta"] = dict()
             json_dict["meta"].update(
@@ -321,9 +309,7 @@ class ConfigGenerator(object):
                 # write python command to file
                 import robomimic
 
-                cmd = "python {}/scripts/train.py --config {}\n".format(
-                    robomimic.__path__[0], path
-                )
+                cmd = "python {}/scripts/train.py --config {}\n".format(robomimic.__path__[0], path)
 
                 print()
                 print(cmd)

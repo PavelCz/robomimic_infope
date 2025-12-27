@@ -91,9 +91,7 @@ class BCQ(PolicyAlgo, ValueAlgo):
             mlp_layer_dims=self.algo_config.critic.layer_dims,
             value_bounds=self.algo_config.critic.value_bounds,
             goal_shapes=self.goal_shapes,
-            encoder_kwargs=ObsUtils.obs_encoder_kwargs_from_config(
-                self.obs_config.encoder
-            ),
+            encoder_kwargs=ObsUtils.obs_encoder_kwargs_from_config(self.obs_config.encoder),
         )
 
         # Q network ensemble and target ensemble
@@ -118,9 +116,7 @@ class BCQ(PolicyAlgo, ValueAlgo):
             ac_dim=self.ac_dim,
             device=self.device,
             goal_shapes=self.goal_shapes,
-            encoder_kwargs=ObsUtils.obs_encoder_kwargs_from_config(
-                self.obs_config.encoder
-            ),
+            encoder_kwargs=ObsUtils.obs_encoder_kwargs_from_config(self.obs_config.encoder),
             **VAENets.vae_args_from_config(self.algo_config.action_sampler.vae),
         )
 
@@ -136,9 +132,7 @@ class BCQ(PolicyAlgo, ValueAlgo):
             ac_dim=self.ac_dim,
             mlp_layer_dims=self.algo_config.actor.layer_dims,
             perturbation_scale=self.algo_config.actor.perturbation_scale,
-            encoder_kwargs=ObsUtils.obs_encoder_kwargs_from_config(
-                self.obs_config.encoder
-            ),
+            encoder_kwargs=ObsUtils.obs_encoder_kwargs_from_config(self.obs_config.encoder),
         )
 
         self.nets["actor"] = actor_class(**actor_args)
@@ -187,21 +181,15 @@ class BCQ(PolicyAlgo, ValueAlgo):
 
         # remove temporal batches for all
         input_batch["obs"] = {k: batch["obs"][k][:, 0, :] for k in batch["obs"]}
-        input_batch["next_obs"] = {
-            k: batch["next_obs"][k][:, n_step - 1, :] for k in batch["next_obs"]
-        }
-        input_batch["goal_obs"] = batch.get(
-            "goal_obs", None
-        )  # goals may not be present
+        input_batch["next_obs"] = {k: batch["next_obs"][k][:, n_step - 1, :] for k in batch["next_obs"]}
+        input_batch["goal_obs"] = batch.get("goal_obs", None)  # goals may not be present
         input_batch["actions"] = batch["actions"][:, 0, :]
 
         # note: ensure scalar signals (rewards, done) retain last dimension of 1 to be compatible with model outputs
 
         # single timestep reward is discounted sum of intermediate rewards in sequence
         reward_seq = batch["rewards"][:, :n_step]
-        discounts = torch.pow(
-            self.algo_config.discount, torch.arange(n_step).float()
-        ).unsqueeze(0)
+        discounts = torch.pow(self.algo_config.discount, torch.arange(n_step).float()).unsqueeze(0)
         input_batch["rewards"] = (reward_seq * discounts).sum(dim=1).unsqueeze(1)
 
         # discount rate will be gamma^N for computing n-step returns
@@ -214,13 +202,9 @@ class BCQ(PolicyAlgo, ValueAlgo):
 
         if self.algo_config.infinite_horizon:
             # scale terminal rewards by 1 / (1 - gamma) for infinite horizon MDPs
-            done_inds = (
-                input_batch["dones"].round().long().nonzero(as_tuple=False)[:, 0]
-            )
+            done_inds = input_batch["dones"].round().long().nonzero(as_tuple=False)[:, 0]
             if done_inds.shape[0] > 0:
-                input_batch["rewards"][done_inds] = input_batch["rewards"][
-                    done_inds
-                ] * (1.0 / (1.0 - self.discount))
+                input_batch["rewards"][done_inds] = input_batch["rewards"][done_inds] * (1.0 / (1.0 - self.discount))
 
         # we move to device first before float conversion because image observation modalities will be uint8 -
         # this minimizes the amount of data transferred to GPU
@@ -251,8 +235,7 @@ class BCQ(PolicyAlgo, ValueAlgo):
         if self.algo_config.action_sampler.vae.prior.use_categorical:
             temperature = (
                 self.algo_config.action_sampler.vae.prior.categorical_init_temp
-                - epoch
-                * self.algo_config.action_sampler.vae.prior.categorical_temp_anneal_step
+                - epoch * self.algo_config.action_sampler.vae.prior.categorical_temp_anneal_step
             )
             temperature = max(
                 temperature,
@@ -282,9 +265,7 @@ class BCQ(PolicyAlgo, ValueAlgo):
         info["action_sampler/kl_loss"] = kl_loss
         if not self.algo_config.action_sampler.vae.prior.use_categorical:
             with torch.no_grad():
-                encoder_variance = torch.exp(
-                    vae_outputs["encoder_params"]["logvar"]
-                ).mean()
+                encoder_variance = torch.exp(vae_outputs["encoder_params"]["logvar"]).mean()
             info["action_sampler/encoder_variance"] = encoder_variance
         outputs = TensorUtils.detach(vae_outputs)
 
@@ -298,9 +279,7 @@ class BCQ(PolicyAlgo, ValueAlgo):
             info["action_sampler/grad_norms"] = vae_grad_norms
         return info, outputs
 
-    def _train_critic_on_batch(
-        self, batch, action_sampler_outputs, epoch, no_backprop=False
-    ):
+    def _train_critic_on_batch(self, batch, action_sampler_outputs, epoch, no_backprop=False):
         """
         A modular helper function that can be overridden in case
         subclasses would like to modify training behavior for the
@@ -367,15 +346,11 @@ class BCQ(PolicyAlgo, ValueAlgo):
                     loss=critic_loss,
                     max_grad_norm=self.algo_config.critic.max_gradient_norm,
                 )
-                info["critic/critic{}_grad_norms".format(critic_ind + 1)] = (
-                    critic_grad_norms
-                )
+                info["critic/critic{}_grad_norms".format(critic_ind + 1)] = critic_grad_norms
 
         return info, critic_outputs
 
-    def _train_actor_on_batch(
-        self, batch, action_sampler_outputs, critic_outputs, epoch, no_backprop=False
-    ):
+    def _train_actor_on_batch(self, batch, action_sampler_outputs, critic_outputs, epoch, no_backprop=False):
         """
         A modular helper function that can be overridden in case
         subclasses would like to modify training behavior for the
@@ -410,13 +385,9 @@ class BCQ(PolicyAlgo, ValueAlgo):
 
         # sample some actions from action sampler and perturb them, then improve perturbations
         # where improvement is measured by the critic
-        sampled_actions = self.nets["action_sampler"](
-            s_batch, goal_s_batch
-        ).detach()  # don't backprop into samples
+        sampled_actions = self.nets["action_sampler"](s_batch, goal_s_batch).detach()  # don't backprop into samples
         perturbed_actions = self.nets["actor"](s_batch, sampled_actions, goal_s_batch)
-        actor_loss = -(
-            self.nets["critic"][0](s_batch, perturbed_actions, goal_s_batch)
-        ).mean()
+        actor_loss = -(self.nets["critic"][0](s_batch, perturbed_actions, goal_s_batch)).mean()
         info["actor/loss"] = actor_loss
 
         if not no_backprop:
@@ -429,9 +400,7 @@ class BCQ(PolicyAlgo, ValueAlgo):
 
         return info
 
-    def _get_target_values(
-        self, next_states, goal_states, rewards, dones, action_sampler_outputs=None
-    ):
+    def _get_target_values(self, next_states, goal_states, rewards, dones, action_sampler_outputs=None):
         """
         Helper function to get target values for training Q-function with TD-loss.
 
@@ -477,9 +446,7 @@ class BCQ(PolicyAlgo, ValueAlgo):
 
         return q_targets
 
-    def _sample_actions_for_value_maximization(
-        self, states_tiled, goal_states_tiled, for_target_update
-    ):
+    def _sample_actions_for_value_maximization(self, states_tiled, goal_states_tiled, for_target_update):
         """
         Helper function to sample actions for maximization (the "batch-constrained" part of
         batch-constrained q-learning).
@@ -501,17 +468,13 @@ class BCQ(PolicyAlgo, ValueAlgo):
         """
 
         with torch.no_grad():
-            sampled_actions = self.nets["action_sampler"](
-                states_tiled, goal_states_tiled
-            )
+            sampled_actions = self.nets["action_sampler"](states_tiled, goal_states_tiled)
             if self.algo_config.actor.enabled:
                 actor = self.nets["actor"]
                 if for_target_update:
                     actor = self.nets["actor_target"]
                 # perturb the actions with the policy
-                sampled_actions = actor(
-                    states_tiled, sampled_actions, goal_states_tiled
-                )
+                sampled_actions = actor(states_tiled, sampled_actions, goal_states_tiled)
 
         return sampled_actions
 
@@ -552,9 +515,9 @@ class BCQ(PolicyAlgo, ValueAlgo):
 
             # TD3 trick to combine max and min over all Q-ensemble estimates into single target estimates
             for critic_target in self.nets["critic_target"][1:]:
-                all_value_targets = critic_target(
-                    next_states_tiled, next_sampled_actions, goal_states_tiled
-                ).reshape(-1, self.algo_config.critic.num_action_samples)
+                all_value_targets = critic_target(next_states_tiled, next_sampled_actions, goal_states_tiled).reshape(
+                    -1, self.algo_config.critic.num_action_samples
+                )
                 max_value_targets = torch.max(max_value_targets, all_value_targets)
                 min_value_targets = torch.min(min_value_targets, all_value_targets)
             all_value_targets = (
@@ -615,16 +578,12 @@ class BCQ(PolicyAlgo, ValueAlgo):
             info = PolicyAlgo.train_on_batch(self, batch, epoch, validate=validate)
 
             # Action Sampler training
-            no_action_sampler_backprop = validate or (
-                not self._check_epoch(net_name="action_sampler", epoch=epoch)
-            )
+            no_action_sampler_backprop = validate or (not self._check_epoch(net_name="action_sampler", epoch=epoch))
             with TorchUtils.maybe_no_grad(no_grad=no_action_sampler_backprop):
-                action_sampler_info, action_sampler_outputs = (
-                    self._train_action_sampler_on_batch(
-                        batch=batch,
-                        epoch=epoch,
-                        no_backprop=no_action_sampler_backprop,
-                    )
+                action_sampler_info, action_sampler_outputs = self._train_action_sampler_on_batch(
+                    batch=batch,
+                    epoch=epoch,
+                    no_backprop=no_action_sampler_backprop,
                 )
             info.update(action_sampler_info)
 
@@ -633,9 +592,7 @@ class BCQ(PolicyAlgo, ValueAlgo):
             self.nets["action_sampler"].eval()
 
             # Critic training
-            no_critic_backprop = validate or (
-                not self._check_epoch(net_name="critic", epoch=epoch)
-            )
+            no_critic_backprop = validate or (not self._check_epoch(net_name="critic", epoch=epoch))
             with TorchUtils.maybe_no_grad(no_grad=no_critic_backprop):
                 critic_info, critic_outputs = self._train_critic_on_batch(
                     batch=batch,
@@ -647,9 +604,7 @@ class BCQ(PolicyAlgo, ValueAlgo):
 
             if self.algo_config.actor.enabled:
                 # Actor training
-                no_actor_backprop = validate or (
-                    not self._check_epoch(net_name="actor", epoch=epoch)
-                )
+                no_actor_backprop = validate or (not self._check_epoch(net_name="actor", epoch=epoch))
                 with TorchUtils.maybe_no_grad(no_grad=no_actor_backprop):
                     actor_info = self._train_actor_on_batch(
                         batch=batch,
@@ -704,10 +659,7 @@ class BCQ(PolicyAlgo, ValueAlgo):
             optims = [self.optimizers[k]]
             if k == "critic":
                 # account for critic having one optimizer per ensemble member
-                keys = [
-                    "{}{}".format(k, critic_ind)
-                    for critic_ind in range(len(self.nets["critic"]))
-                ]
+                keys = ["{}{}".format(k, critic_ind) for critic_ind in range(len(self.nets["critic"]))]
                 optims = self.optimizers[k]
             for kp, optimizer in zip(keys, optims):
                 for i, param_group in enumerate(optimizer.param_groups):
@@ -735,18 +687,12 @@ class BCQ(PolicyAlgo, ValueAlgo):
         """
         loss_log = OrderedDict()
         loss_log["Action_Sampler/Loss"] = info["action_sampler/loss"].item()
-        loss_log["Action_Sampler/Reconsruction_Loss"] = info[
-            "action_sampler/recons_loss"
-        ].item()
+        loss_log["Action_Sampler/Reconsruction_Loss"] = info["action_sampler/recons_loss"].item()
         loss_log["Action_Sampler/KL_Loss"] = info["action_sampler/kl_loss"].item()
         if self.algo_config.action_sampler.vae.prior.use_categorical:
-            loss_log["Action_Sampler/Gumbel_Temperature"] = self.nets[
-                "action_sampler"
-            ].get_gumbel_temperature()
+            loss_log["Action_Sampler/Gumbel_Temperature"] = self.nets["action_sampler"].get_gumbel_temperature()
         else:
-            loss_log["Action_Sampler/Encoder_Variance"] = info[
-                "action_sampler/encoder_variance"
-            ].item()
+            loss_log["Action_Sampler/Encoder_Variance"] = info["action_sampler/encoder_variance"].item()
         if "action_sampler/grad_norms" in info:
             loss_log["Action_Sampler/Grad_Norms"] = info["action_sampler/grad_norms"]
         loss_log["Loss"] = loss_log["Action_Sampler/Loss"]
@@ -758,9 +704,7 @@ class BCQ(PolicyAlgo, ValueAlgo):
         """
         loss_log = OrderedDict()
         if "done_masks" in info:
-            loss_log["Critic/Done_Mask_Percentage"] = (
-                100.0 * torch.mean(info["done_masks"]).item()
-            )
+            loss_log["Critic/Done_Mask_Percentage"] = 100.0 * torch.mean(info["done_masks"]).item()
         if "critic/q_targets" in info:
             loss_log["Critic/Q_Targets"] = info["critic/q_targets"].mean().item()
         loss_log["Loss"] = 0.0
@@ -847,9 +791,7 @@ class BCQ(PolicyAlgo, ValueAlgo):
         ob_tiled = ObsUtils.repeat_and_stack_observation(obs_dict, n=num_action_samples)
         goal_tiled = None
         if len(self.goal_shapes) > 0:
-            goal_tiled = ObsUtils.repeat_and_stack_observation(
-                goal_dict, n=num_action_samples
-            )
+            goal_tiled = ObsUtils.repeat_and_stack_observation(goal_dict, n=num_action_samples)
 
         sampled_actions = self._sample_actions_for_value_maximization(
             states_tiled=ob_tiled,
@@ -860,16 +802,14 @@ class BCQ(PolicyAlgo, ValueAlgo):
         # feed tiled observations and perturbed sampled actions into the critic and then
         # reshape to get all Q-values in second dimension per observation in batch.
         # finally, just take a maximum across that second dimension to take the best sampled action
-        all_critic_values = self.nets["critic"][0](
-            ob_tiled, sampled_actions, goal_tiled
-        ).reshape(-1, num_action_samples)
+        all_critic_values = self.nets["critic"][0](ob_tiled, sampled_actions, goal_tiled).reshape(
+            -1, num_action_samples
+        )
         best_action_index = torch.argmax(all_critic_values, dim=1)
 
         all_actions = sampled_actions.reshape(batch_size, num_action_samples, -1)
         best_action = all_actions[torch.arange(all_actions.shape[0]), best_action_index]
-        best_value = all_critic_values[
-            torch.arange(all_critic_values.shape[0]), best_action_index
-        ].unsqueeze(1)
+        best_value = all_critic_values[torch.arange(all_critic_values.shape[0]), best_action_index].unsqueeze(1)
 
         return best_value, best_action
 
@@ -944,9 +884,7 @@ class BCQ_GMM(BCQ):
             min_std=self.algo_config.action_sampler.gmm.min_std,
             std_activation=self.algo_config.action_sampler.gmm.std_activation,
             low_noise_eval=self.algo_config.action_sampler.gmm.low_noise_eval,
-            encoder_kwargs=ObsUtils.obs_encoder_kwargs_from_config(
-                self.obs_config.encoder
-            ),
+            encoder_kwargs=ObsUtils.obs_encoder_kwargs_from_config(self.obs_config.encoder),
         )
 
     def _train_action_sampler_on_batch(self, batch, epoch, no_backprop=False):
@@ -1026,9 +964,7 @@ class BCQ_Distributional(BCQ):
             value_bounds=self.algo_config.critic.value_bounds,
             num_atoms=self.algo_config.critic.distributional.num_atoms,
             goal_shapes=self.goal_shapes,
-            encoder_kwargs=ObsUtils.obs_encoder_kwargs_from_config(
-                self.obs_config.encoder
-            ),
+            encoder_kwargs=ObsUtils.obs_encoder_kwargs_from_config(self.obs_config.encoder),
         )
 
         # Q network ensemble and target ensemble
@@ -1074,16 +1010,10 @@ class BCQ_Distributional(BCQ):
             all_vds = self.nets["critic_target"][0].forward_train(
                 next_states_tiled, next_sampled_actions, goal_states_tiled
             )
-            expected_values = all_vds.mean().reshape(
-                -1, self.algo_config.critic.num_action_samples
-            )
+            expected_values = all_vds.mean().reshape(-1, self.algo_config.critic.num_action_samples)
             best_action_index = torch.argmax(expected_values, dim=1)
-            all_actions = next_sampled_actions.reshape(
-                -1, self.algo_config.critic.num_action_samples, self.ac_dim
-            )
-            best_action = all_actions[
-                torch.arange(all_actions.shape[0]), best_action_index
-            ]
+            all_actions = next_sampled_actions.reshape(-1, self.algo_config.critic.num_action_samples, self.ac_dim)
+            best_action = all_actions[torch.arange(all_actions.shape[0]), best_action_index]
 
             # get the corresponding probabilities for the categorical distributions corresponding to the best actions
             all_vd_probs = all_vds.probs.reshape(
@@ -1091,9 +1021,7 @@ class BCQ_Distributional(BCQ):
                 self.algo_config.critic.num_action_samples,
                 self.algo_config.critic.distributional.num_atoms,
             )
-            target_vd_probs = all_vd_probs[
-                torch.arange(all_vd_probs.shape[0]), best_action_index
-            ]
+            target_vd_probs = all_vd_probs[torch.arange(all_vd_probs.shape[0]), best_action_index]
 
             # bellman backup to get a new grid of values - then project onto the canonical atoms to obtain a
             # target set of categorical probabilities over the atoms

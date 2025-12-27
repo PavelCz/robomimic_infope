@@ -39,9 +39,7 @@ class GL(PlannerAlgo):
     Implements goal prediction component for HBC and IRIS.
     """
 
-    def __init__(
-        self, algo_config, obs_config, global_config, obs_key_shapes, ac_dim, device
-    ):
+    def __init__(self, algo_config, obs_config, global_config, obs_key_shapes, ac_dim, device):
         """
         Args:
             algo_config (Config object): instance of Config corresponding to the algo section
@@ -85,9 +83,7 @@ class GL(PlannerAlgo):
             input_obs_group_shapes=obs_group_shapes,
             output_shapes=self.subgoal_shapes,
             layer_dims=self.algo_config.ae.planner_layer_dims,
-            encoder_kwargs=ObsUtils.obs_encoder_kwargs_from_config(
-                self.obs_config.encoder
-            ),
+            encoder_kwargs=ObsUtils.obs_encoder_kwargs_from_config(self.obs_config.encoder),
         )
 
         self.nets = self.nets.float().to(self.device)
@@ -110,22 +106,15 @@ class GL(PlannerAlgo):
         # remove temporal batches for all except scalar signals (to be compatible with model outputs)
         input_batch["obs"] = {k: batch["obs"][k][:, 0, :] for k in batch["obs"]}
         # extract multi-horizon subgoal target
-        input_batch["subgoals"] = {
-            k: batch["next_obs"][k][:, self._subgoal_horizon - 1, :]
-            for k in batch["next_obs"]
-        }
+        input_batch["subgoals"] = {k: batch["next_obs"][k][:, self._subgoal_horizon - 1, :] for k in batch["next_obs"]}
         input_batch["target_subgoals"] = input_batch["subgoals"]
-        input_batch["goal_obs"] = batch.get(
-            "goal_obs", None
-        )  # goals may not be present
+        input_batch["goal_obs"] = batch.get("goal_obs", None)  # goals may not be present
 
         # we move to device first before float conversion because image observation modalities will be uint8 -
         # this minimizes the amount of data transferred to GPU
         return TensorUtils.to_float(TensorUtils.to_device(input_batch, self.device))
 
-    def get_actor_goal_for_training_from_processed_batch(
-        self, processed_batch, **kwargs
-    ):
+    def get_actor_goal_for_training_from_processed_batch(self, processed_batch, **kwargs):
         """
         Retrieve subgoals from processed batch to use for training the actor. Subclasses
         can modify this function to change the subgoals.
@@ -159,18 +148,14 @@ class GL(PlannerAlgo):
             info = super(GL, self).train_on_batch(batch, epoch, validate=validate)
 
             # predict subgoal observations with goal network
-            pred_subgoals = self.nets["goal_network"](
-                obs=batch["obs"], goal=batch["goal_obs"]
-            )
+            pred_subgoals = self.nets["goal_network"](obs=batch["obs"], goal=batch["goal_obs"])
 
             # compute loss as L2 error for each observation key
             losses = OrderedDict()
             target_subgoals = batch["target_subgoals"]  # targets for network prediction
             goal_loss = 0.0
             for k in pred_subgoals:
-                assert pred_subgoals[k].shape == target_subgoals[k].shape, (
-                    "mismatch in predicted and target subgoals!"
-                )
+                assert pred_subgoals[k].shape == target_subgoals[k].shape, "mismatch in predicted and target subgoals!"
                 mode_loss = nn.MSELoss()(pred_subgoals[k], target_subgoals[k])
                 goal_loss += mode_loss
                 losses["goal_{}_loss".format(k)] = mode_loss
@@ -246,9 +231,7 @@ class GL(PlannerAlgo):
         # [batch_size * num_samples, ...]
         goals = self.get_subgoal_predictions(obs_dict=obs_tiled, goal_dict=goal_tiled)
         # reshape to [batch_size, num_samples, ...]
-        return TensorUtils.reshape_dimensions(
-            goals, begin_axis=0, end_axis=0, target_dims=(-1, num_samples)
-        )
+        return TensorUtils.reshape_dimensions(goals, begin_axis=0, end_axis=0, target_dims=(-1, num_samples))
 
     def get_action(self, obs_dict, goal_dict=None):
         """
@@ -281,9 +264,7 @@ class GL_VAE(GL):
             condition_shapes=self.obs_shapes,
             goal_shapes=self.goal_shapes,
             device=self.device,
-            encoder_kwargs=ObsUtils.obs_encoder_kwargs_from_config(
-                self.obs_config.encoder
-            ),
+            encoder_kwargs=ObsUtils.obs_encoder_kwargs_from_config(self.obs_config.encoder),
             **VAENets.vae_args_from_config(self.algo_config.vae),
         )
 
@@ -328,9 +309,7 @@ class GL_VAE(GL):
         # batch variables
         obs = processed_batch["obs"]
         subgoals = processed_batch["subgoals"]  # full subgoal observations
-        target_subgoals = processed_batch[
-            "target_subgoals"
-        ]  # targets for network prediction
+        target_subgoals = processed_batch["target_subgoals"]  # targets for network prediction
         goal_obs = processed_batch["goal_obs"]
 
         with torch.no_grad():
@@ -352,14 +331,10 @@ class GL_VAE(GL):
                 batch_size = obs[random_key].shape[0]
 
                 # for each batch member, get @num_prior_samples samples from the prior
-                obs_tiled = ObsUtils.repeat_and_stack_observation(
-                    obs, n=num_prior_samples
-                )
+                obs_tiled = ObsUtils.repeat_and_stack_observation(obs, n=num_prior_samples)
                 goal_tiled = None
                 if len(self.goal_shapes) > 0:
-                    goal_tiled = ObsUtils.repeat_and_stack_observation(
-                        goal_obs, n=num_prior_samples
-                    )
+                    goal_tiled = ObsUtils.repeat_and_stack_observation(goal_obs, n=num_prior_samples)
 
                 prior_z_samples = self.nets["goal_network"].sample_prior(
                     conditions=obs_tiled,
@@ -370,9 +345,7 @@ class GL_VAE(GL):
                 # note: every posterior sample in the batch has @num_prior_samples corresponding prior samples
 
                 # reshape prior samples to (batch_size, num_samples, latent_dim)
-                prior_z_samples = prior_z_samples.reshape(
-                    batch_size, num_prior_samples, -1
-                )
+                prior_z_samples = prior_z_samples.reshape(batch_size, num_prior_samples, -1)
 
                 # reshape posterior latents to (batch_size, 1, latent_dim)
                 posterior_z_expanded = posterior_z.unsqueeze(1)
@@ -383,9 +356,7 @@ class GL_VAE(GL):
 
                 # then gather the closest prior sample for each posterior sample
                 neighbors = torch.argmin(distances, dim=1)
-                latent_subgoals = prior_z_samples[
-                    torch.arange(batch_size).long(), neighbors
-                ]
+                latent_subgoals = prior_z_samples[torch.arange(batch_size).long(), neighbors]
 
         return {"latent_subgoal": latent_subgoals}
 
@@ -414,9 +385,7 @@ class GL_VAE(GL):
                     self.algo_config.vae.prior.categorical_init_temp
                     - epoch * self.algo_config.vae.prior.categorical_temp_anneal_step
                 )
-                temperature = max(
-                    temperature, self.algo_config.vae.prior.categorical_min_temp
-                )
+                temperature = max(temperature, self.algo_config.vae.prior.categorical_min_temp)
                 self.nets["goal_network"].set_gumbel_temperature(temperature)
 
             # batch variables
@@ -440,9 +409,7 @@ class GL_VAE(GL):
 
             if not self.algo_config.vae.prior.use_categorical:
                 with torch.no_grad():
-                    info["encoder_variance"] = torch.exp(
-                        vae_outputs["encoder_params"]["logvar"]
-                    )
+                    info["encoder_variance"] = torch.exp(vae_outputs["encoder_params"]["logvar"])
 
             # VAE gradient step
             if not validate:
@@ -470,9 +437,7 @@ class GL_VAE(GL):
         loss_log["Reconstruction_Loss"] = info["recons_loss"].item()
         loss_log["KL_Loss"] = info["kl_loss"].item()
         if self.algo_config.vae.prior.use_categorical:
-            loss_log["Gumbel_Temperature"] = self.nets[
-                "goal_network"
-            ].get_gumbel_temperature()
+            loss_log["Gumbel_Temperature"] = self.nets["goal_network"].get_gumbel_temperature()
         else:
             loss_log["Encoder_Variance"] = info["encoder_variance"].mean().item()
         return loss_log
@@ -499,9 +464,7 @@ class GL_VAE(GL):
             return OrderedDict(latent_subgoal=latent_subgoals)
 
         # sample a single goal from the VAE
-        goals = self.sample_subgoals(
-            obs_dict=obs_dict, goal_dict=goal_dict, num_samples=1
-        )
+        goals = self.sample_subgoals(obs_dict=obs_dict, goal_dict=goal_dict, num_samples=1)
         return {k: goals[k][:, 0, ...] for k in goals}
 
     def sample_subgoals(self, obs_dict, goal_dict=None, num_samples=1):
@@ -526,13 +489,9 @@ class GL_VAE(GL):
         mod = list(obs_tiled.keys())[0]
         n = obs_tiled[mod].shape[0]
         # [batch_size * num_samples, ...]
-        goals = self.nets["goal_network"].decode(
-            n=n, conditions=obs_tiled, goals=goal_tiled
-        )
+        goals = self.nets["goal_network"].decode(n=n, conditions=obs_tiled, goals=goal_tiled)
         # reshape to [batch_size, num_samples, ...]
-        return TensorUtils.reshape_dimensions(
-            goals, begin_axis=0, end_axis=0, target_dims=(-1, num_samples)
-        )
+        return TensorUtils.reshape_dimensions(goals, begin_axis=0, end_axis=0, target_dims=(-1, num_samples))
 
 
 class ValuePlanner(PlannerAlgo, ValueAlgo):
@@ -646,14 +605,10 @@ class ValuePlanner(PlannerAlgo, ValueAlgo):
         info = dict(planner=dict(), value_net=dict())
 
         # train planner
-        info["planner"].update(
-            self.planner.train_on_batch(batch["planner"], epoch, validate=validate)
-        )
+        info["planner"].update(self.planner.train_on_batch(batch["planner"], epoch, validate=validate))
 
         # train value network
-        info["value_net"].update(
-            self.value_net.train_on_batch(batch["value_net"], epoch, validate=validate)
-        )
+        info["value_net"].update(self.value_net.train_on_batch(batch["value_net"], epoch, validate=validate))
 
         return info
 
@@ -762,9 +717,7 @@ class ValuePlanner(PlannerAlgo, ValueAlgo):
         num_samples = self.algo_config.num_samples
 
         # sample subgoals from the planner (shape: [batch_size, num_samples, ...])
-        subgoals = self.sample_subgoals(
-            obs_dict=obs_dict, goal_dict=goal_dict, num_samples=num_samples
-        )
+        subgoals = self.sample_subgoals(obs_dict=obs_dict, goal_dict=goal_dict, num_samples=num_samples)
 
         # stack subgoals to get all values in one forward pass (shape [batch_size * num_samples, ...])
         k = list(obs_dict.keys())[0]
@@ -779,15 +732,13 @@ class ValuePlanner(PlannerAlgo, ValueAlgo):
             goal_tiled = ObsUtils.repeat_and_stack_observation(goal_dict, n=num_samples)
 
         # evaluate the value of each subgoal
-        subgoal_values = self.value_net.get_state_value(
-            obs_dict=subgoals_tiled, goal_dict=goal_tiled
-        ).reshape(-1, num_samples)
+        subgoal_values = self.value_net.get_state_value(obs_dict=subgoals_tiled, goal_dict=goal_tiled).reshape(
+            -1, num_samples
+        )
 
         # pick the best subgoal
         best_index = torch.argmax(subgoal_values, dim=1)
-        best_subgoal = {
-            k: subgoals[k][torch.arange(bsize), best_index] for k in subgoals
-        }
+        best_subgoal = {k: subgoals[k][torch.arange(bsize), best_index] for k in subgoals}
         return best_subgoal
 
     def sample_subgoals(self, obs_dict, goal_dict, num_samples=1):
@@ -801,9 +752,7 @@ class ValuePlanner(PlannerAlgo, ValueAlgo):
         Returns:
             subgoals (dict): name -> Tensor [batch_size, num_samples, ...]
         """
-        return self.planner.sample_subgoals(
-            obs_dict=obs_dict, goal_dict=goal_dict, num_samples=num_samples
-        )
+        return self.planner.sample_subgoals(obs_dict=obs_dict, goal_dict=goal_dict, num_samples=num_samples)
 
     def get_state_value(self, obs_dict, goal_dict=None):
         """
@@ -830,6 +779,4 @@ class ValuePlanner(PlannerAlgo, ValueAlgo):
         Returns:
             value (torch.Tensor): value tensor
         """
-        return self.value_net.get_state_action_value(
-            obs_dict=obs_dict, actions=actions, goal_dict=goal_dict
-        )
+        return self.value_net.get_state_action_value(obs_dict=obs_dict, actions=actions, goal_dict=goal_dict)

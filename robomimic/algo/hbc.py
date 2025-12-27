@@ -84,13 +84,9 @@ class HBC(HierarchicalAlgo):
         self.ac_dim = ac_dim
         self.device = device
 
-        self._subgoal_step_count = (
-            0  # current step count for deciding when to update subgoal
-        )
+        self._subgoal_step_count = 0  # current step count for deciding when to update subgoal
         self._current_subgoal = None  # latest subgoal
-        self._subgoal_update_interval = (
-            self.algo_config.subgoal_update_interval
-        )  # subgoal update frequency
+        self._subgoal_update_interval = self.algo_config.subgoal_update_interval  # subgoal update frequency
         self._subgoal_horizon = self.algo_config.planner.subgoal_horizon
         self._actor_horizon = self.algo_config.actor.rnn.horizon
 
@@ -110,9 +106,7 @@ class HBC(HierarchicalAlgo):
         self.actor_goal_shapes = self.planner.subgoal_shapes
         if self.algo_config.latent_subgoal.enabled:
             assert planner_algo_class == GL_VAE  # only VAE supported for now
-            self.actor_goal_shapes = OrderedDict(
-                latent_subgoal=(self.planner.algo_config.vae.latent_dim,)
-            )
+            self.actor_goal_shapes = OrderedDict(latent_subgoal=(self.planner.algo_config.vae.latent_dim,))
 
         # only for the actor: override goal modalities and shapes to match the subgoal set by the planner
         actor_obs_key_shapes = deepcopy(obs_key_shapes)
@@ -122,9 +116,7 @@ class HBC(HierarchicalAlgo):
                 assert actor_obs_key_shapes[k] == self.actor_goal_shapes[k]
         actor_obs_key_shapes.update(self.actor_goal_shapes)
 
-        goal_obs_keys = {
-            obs_modality: [] for obs_modality in ObsUtils.OBS_MODALITY_CLASSES.keys()
-        }
+        goal_obs_keys = {obs_modality: [] for obs_modality in ObsUtils.OBS_MODALITY_CLASSES.keys()}
         for k in self.actor_goal_shapes.keys():
             goal_obs_keys[ObsUtils.OBS_KEYS_TO_MODALITIES[k]].append(k)
 
@@ -166,29 +158,21 @@ class HBC(HierarchicalAlgo):
                 high=self.global_config.train.seq_length,
                 size=(batch["actions"].shape[0],),
             )
-            goal_obs = TensorUtils.gather_sequence(
-                batch["next_obs"], policy_subgoal_indices
-            )
-            goal_obs = TensorUtils.to_float(
-                TensorUtils.to_device(goal_obs, self.device)
-            )
-            input_batch["actor"]["goal_obs"] = (
-                self.planner.get_actor_goal_for_training_from_processed_batch(
-                    goal_obs,
-                    use_latent_subgoals=self.algo_config.latent_subgoal.enabled,
-                    use_prior_correction=self.algo_config.latent_subgoal.prior_correction.enabled,
-                    num_prior_samples=self.algo_config.latent_subgoal.prior_correction.num_samples,
-                )
+            goal_obs = TensorUtils.gather_sequence(batch["next_obs"], policy_subgoal_indices)
+            goal_obs = TensorUtils.to_float(TensorUtils.to_device(goal_obs, self.device))
+            input_batch["actor"]["goal_obs"] = self.planner.get_actor_goal_for_training_from_processed_batch(
+                goal_obs,
+                use_latent_subgoals=self.algo_config.latent_subgoal.enabled,
+                use_prior_correction=self.algo_config.latent_subgoal.prior_correction.enabled,
+                num_prior_samples=self.algo_config.latent_subgoal.prior_correction.num_samples,
             )
         else:
             # otherwise, use planner subgoal target as goal for the policy
-            input_batch["actor"]["goal_obs"] = (
-                self.planner.get_actor_goal_for_training_from_processed_batch(
-                    input_batch["planner"],
-                    use_latent_subgoals=self.algo_config.latent_subgoal.enabled,
-                    use_prior_correction=self.algo_config.latent_subgoal.prior_correction.enabled,
-                    num_prior_samples=self.algo_config.latent_subgoal.prior_correction.num_samples,
-                )
+            input_batch["actor"]["goal_obs"] = self.planner.get_actor_goal_for_training_from_processed_batch(
+                input_batch["planner"],
+                use_latent_subgoals=self.algo_config.latent_subgoal.enabled,
+                use_prior_correction=self.algo_config.latent_subgoal.prior_correction.enabled,
+                num_prior_samples=self.algo_config.latent_subgoal.prior_correction.num_samples,
             )
 
         # we move to device first before float conversion because image observation modalities will be uint8 -
@@ -214,16 +198,12 @@ class HBC(HierarchicalAlgo):
         """
         info = dict(planner=dict(), actor=dict())
         # train planner
-        info["planner"].update(
-            self.planner.train_on_batch(batch["planner"], epoch, validate=validate)
-        )
+        info["planner"].update(self.planner.train_on_batch(batch["planner"], epoch, validate=validate))
 
         # train actor
         if self._algo_mode == "separate":
             # train low-level actor by getting subgoals from the dataset
-            info["actor"].update(
-                self.actor.train_on_batch(batch["actor"], epoch, validate=validate)
-            )
+            info["actor"].update(self.actor.train_on_batch(batch["actor"], epoch, validate=validate))
 
         elif self._algo_mode == "cascade":
             # get predictions from the planner
@@ -234,14 +214,10 @@ class HBC(HierarchicalAlgo):
                 )
 
             # train actor with the predicted goal
-            info["actor"].update(
-                self.actor.train_on_batch(batch["actor"], epoch, validate=validate)
-            )
+            info["actor"].update(self.actor.train_on_batch(batch["actor"], epoch, validate=validate))
 
         else:
-            raise NotImplementedError(
-                "algo mode {} is not implemented".format(self._algo_mode)
-            )
+            raise NotImplementedError("algo mode {} is not implemented".format(self._algo_mode))
 
         return info
 
@@ -344,18 +320,11 @@ class HBC(HierarchicalAlgo):
         Returns:
             action (torch.Tensor): action tensor
         """
-        if (
-            self._current_subgoal is None
-            or self._subgoal_step_count % self._subgoal_update_interval == 0
-        ):
+        if self._current_subgoal is None or self._subgoal_step_count % self._subgoal_update_interval == 0:
             # update current subgoal
-            self.current_subgoal = self.planner.get_subgoal_predictions(
-                obs_dict=obs_dict, goal_dict=goal_dict
-            )
+            self.current_subgoal = self.planner.get_subgoal_predictions(obs_dict=obs_dict, goal_dict=goal_dict)
 
-        action = self.actor.get_action(
-            obs_dict=obs_dict, goal_dict=self.current_subgoal
-        )
+        action = self.actor.get_action(obs_dict=obs_dict, goal_dict=self.current_subgoal)
         self._subgoal_step_count += 1
         return action
 

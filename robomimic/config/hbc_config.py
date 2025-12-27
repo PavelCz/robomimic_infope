@@ -15,9 +15,7 @@ class HBCConfig(BaseConfig):
         Update from superclass to change default sequence length to load from dataset.
         """
         super(HBCConfig, self).train_config()
-        self.train.seq_length = (
-            10  # length of experience sequence to fetch from the buffer
-        )
+        self.train.seq_length = 10  # length of experience sequence to fetch from the buffer
 
     def algo_config(self):
         """
@@ -33,15 +31,13 @@ class HBCConfig(BaseConfig):
         # on planner subgoal predictions. In "actor_only" mode, only the actor is trained, and in
         # "planner_only" mode, only the planner is trained.
         self.algo.mode = "separate"
-        self.algo.actor_use_random_subgoals = (
-            False  # whether to sample subgoal index from [1, subgoal_horizon]
-        )
-        self.algo.subgoal_update_interval = (
-            10  # how frequently the subgoal should be updated at test-time
-        )
+        self.algo.actor_use_random_subgoals = False  # whether to sample subgoal index from [1, subgoal_horizon]
+        self.algo.subgoal_update_interval = 10  # how frequently the subgoal should be updated at test-time
 
         # ================== Latent Subgoal Config ==================
-        self.algo.latent_subgoal.enabled = False  # if True, use VAE latent space as subgoals for actor, instead of reconstructions
+        self.algo.latent_subgoal.enabled = (
+            False  # if True, use VAE latent space as subgoals for actor, instead of reconstructions
+        )
 
         # prior correction trick for actor and value training: instead of using encoder for
         # transforming subgoals to latent subgoals, generate prior samples and choose
@@ -78,13 +74,7 @@ class HBCConfig(BaseConfig):
         """
         Update from superclass - planner goal modalities determine goal-conditioning
         """
-        return (
-            len(
-                self.observation.planner.modalities.goal.low_dim
-                + self.observation.planner.modalities.goal.rgb
-            )
-            > 0
-        )
+        return len(self.observation.planner.modalities.goal.low_dim + self.observation.planner.modalities.goal.rgb) > 0
 
     @property
     def all_obs_keys(self):

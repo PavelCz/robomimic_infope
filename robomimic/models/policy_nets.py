@@ -109,9 +109,7 @@ class ActorNetwork(MIMO_MLP):
         return [self.ac_dim]
 
     def forward(self, obs_dict, goal_dict=None):
-        actions = super(ActorNetwork, self).forward(obs=obs_dict, goal=goal_dict)[
-            "action"
-        ]
+        actions = super(ActorNetwork, self).forward(obs=obs_dict, goal=goal_dict)["action"]
         # apply tanh squashing to ensure actions are in [-1, 1]
         return torch.tanh(actions)
 
@@ -197,9 +195,7 @@ class PerturbationActorNetwork(ActorNetwork):
 
     def _to_string(self):
         """Info to pretty print."""
-        return "action_dim={}, perturbation_scale={}".format(
-            self.ac_dim, self.perturbation_scale
-        )
+        return "action_dim={}, perturbation_scale={}".format(self.ac_dim, self.perturbation_scale)
 
 
 class GaussianActorNetwork(ActorNetwork):
@@ -300,10 +296,8 @@ class GaussianActorNetwork(ActorNetwork):
             "softplus": softplus_scaled,
             "exp": torch.exp,
         }
-        assert std_activation in self.activations, (
-            "std_activation must be one of: {}; instead got: {}".format(
-                self.activations.keys(), std_activation
-            )
+        assert std_activation in self.activations, "std_activation must be one of: {}; instead got: {}".format(
+            self.activations.keys(), std_activation
         )
         self.std_activation = std_activation if not self.fixed_std else None
 
@@ -322,12 +316,8 @@ class GaussianActorNetwork(ActorNetwork):
         if init_last_fc_weight is not None:
             with torch.no_grad():
                 for name, layer in self.nets["decoder"].nets.items():
-                    torch.nn.init.uniform_(
-                        layer.weight, -init_last_fc_weight, init_last_fc_weight
-                    )
-                    torch.nn.init.uniform_(
-                        layer.bias, -init_last_fc_weight, init_last_fc_weight
-                    )
+                    torch.nn.init.uniform_(layer.weight, -init_last_fc_weight, init_last_fc_weight)
+                    torch.nn.init.uniform_(layer.bias, -init_last_fc_weight, init_last_fc_weight)
 
     def _get_output_shapes(self):
         """
@@ -355,11 +345,7 @@ class GaussianActorNetwork(ActorNetwork):
         out = MIMO_MLP.forward(self, obs=obs_dict, goal=goal_dict)
         mean = out["mean"]
         # Use either constant std or learned std depending on setting
-        scale = (
-            out["scale"]
-            if not self.fixed_std
-            else torch.ones_like(mean) * self.init_std
-        )
+        scale = out["scale"] if not self.fixed_std else torch.ones_like(mean) * self.init_std
 
         # Clamp the mean
         mean = torch.clamp(mean, min=self.mean_limits[0], max=self.mean_limits[1])
@@ -499,10 +485,8 @@ class GMMActorNetwork(ActorNetwork):
             "softplus": F.softplus,
             "exp": torch.exp,
         }
-        assert std_activation in self.activations, (
-            "std_activation must be one of: {}; instead got: {}".format(
-                self.activations.keys(), std_activation
-            )
+        assert std_activation in self.activations, "std_activation must be one of: {}; instead got: {}".format(
+            self.activations.keys(), std_activation
         )
         self.std_activation = std_activation
 
@@ -707,9 +691,7 @@ class RNNActorNetwork(RNN_MIMO_MLP):
         )
         return [T, self.ac_dim]
 
-    def forward(
-        self, obs_dict, goal_dict=None, rnn_init_state=None, return_state=False
-    ):
+    def forward(self, obs_dict, goal_dict=None, rnn_init_state=None, return_state=False):
         """
         Forward a sequence of inputs through the RNN and the per-step network.
 
@@ -728,9 +710,7 @@ class RNNActorNetwork(RNN_MIMO_MLP):
             assert goal_dict is not None
             # repeat the goal observation in time to match dimension with obs_dict
             mod = list(obs_dict.keys())[0]
-            goal_dict = TensorUtils.unsqueeze_expand_at(
-                goal_dict, size=obs_dict[mod].shape[1], dim=1
-            )
+            goal_dict = TensorUtils.unsqueeze_expand_at(goal_dict, size=obs_dict[mod].shape[1], dim=1)
 
         outputs = super(RNNActorNetwork, self).forward(
             obs=obs_dict,
@@ -768,9 +748,7 @@ class RNNActorNetwork(RNN_MIMO_MLP):
             state: updated rnn state
         """
         obs_dict = TensorUtils.to_sequence(obs_dict)
-        action, state = self.forward(
-            obs_dict, goal_dict, rnn_init_state=rnn_state, return_state=True
-        )
+        action, state = self.forward(obs_dict, goal_dict, rnn_init_state=rnn_state, return_state=True)
         return action[:, 0], state
 
     def _to_string(self):
@@ -855,10 +833,8 @@ class RNNGMMActorNetwork(RNNActorNetwork):
             "softplus": F.softplus,
             "exp": torch.exp,
         }
-        assert std_activation in self.activations, (
-            "std_activation must be one of: {}; instead got: {}".format(
-                self.activations.keys(), std_activation
-            )
+        assert std_activation in self.activations, "std_activation must be one of: {}; instead got: {}".format(
+            self.activations.keys(), std_activation
         )
         self.std_activation = std_activation
 
@@ -885,9 +861,7 @@ class RNNGMMActorNetwork(RNNActorNetwork):
             logits=(self.num_modes,),
         )
 
-    def forward_train(
-        self, obs_dict, goal_dict=None, rnn_init_state=None, return_state=False
-    ):
+    def forward_train(self, obs_dict, goal_dict=None, rnn_init_state=None, return_state=False):
         """
         Return full GMM distribution, which is useful for computing
         quantities necessary at train-time, like log-likelihood, KL
@@ -907,9 +881,7 @@ class RNNGMMActorNetwork(RNNActorNetwork):
             assert goal_dict is not None
             # repeat the goal observation in time to match dimension with obs_dict
             mod = list(obs_dict.keys())[0]
-            goal_dict = TensorUtils.unsqueeze_expand_at(
-                goal_dict, size=obs_dict[mod].shape[1], dim=1
-            )
+            goal_dict = TensorUtils.unsqueeze_expand_at(goal_dict, size=obs_dict[mod].shape[1], dim=1)
 
         outputs = RNN_MIMO_MLP.forward(
             self,
@@ -942,9 +914,7 @@ class RNNGMMActorNetwork(RNNActorNetwork):
         # mixture components - make sure that `batch_shape` for the distribution is equal
         # to (batch_size, timesteps, num_modes) since MixtureSameFamily expects this shape
         component_distribution = D.Normal(loc=means, scale=scales)
-        component_distribution = D.Independent(
-            component_distribution, 1
-        )  # shift action dim to event shape
+        component_distribution = D.Independent(component_distribution, 1)  # shift action dim to event shape
 
         # unnormalized logits to categorical distribution for mixing the modes
         mixture_distribution = D.Categorical(logits=logits)
@@ -963,9 +933,7 @@ class RNNGMMActorNetwork(RNNActorNetwork):
         else:
             return dists
 
-    def forward(
-        self, obs_dict, goal_dict=None, rnn_init_state=None, return_state=False
-    ):
+    def forward(self, obs_dict, goal_dict=None, rnn_init_state=None, return_state=False):
         """
         Samples actions from the policy distribution.
 
@@ -1004,9 +972,7 @@ class RNNGMMActorNetwork(RNNActorNetwork):
             state: updated rnn state
         """
         obs_dict = TensorUtils.to_sequence(obs_dict)
-        ad, state = self.forward_train(
-            obs_dict, goal_dict, rnn_init_state=rnn_state, return_state=True
-        )
+        ad, state = self.forward_train(obs_dict, goal_dict, rnn_init_state=rnn_state, return_state=True)
 
         # to squeeze time dimension, make another action distribution
         assert ad.component_distribution.base_dist.loc.shape[1] == 1
@@ -1017,9 +983,7 @@ class RNNGMMActorNetwork(RNNActorNetwork):
             scale=ad.component_distribution.base_dist.scale.squeeze(1),
         )
         component_distribution = D.Independent(component_distribution, 1)
-        mixture_distribution = D.Categorical(
-            logits=ad.mixture_distribution.logits.squeeze(1)
-        )
+        mixture_distribution = D.Categorical(logits=ad.mixture_distribution.logits.squeeze(1))
         ad = D.MixtureSameFamily(
             mixture_distribution=mixture_distribution,
             component_distribution=component_distribution,
@@ -1041,9 +1005,7 @@ class RNNGMMActorNetwork(RNNActorNetwork):
             state: updated rnn state
         """
         obs_dict = TensorUtils.to_sequence(obs_dict)
-        acts, state = self.forward(
-            obs_dict, goal_dict, rnn_init_state=rnn_state, return_state=True
-        )
+        acts, state = self.forward(obs_dict, goal_dict, rnn_init_state=rnn_state, return_state=True)
         assert acts.shape[1] == 1
         return acts[:, 0], state
 
@@ -1131,9 +1093,7 @@ class TransformerActorNetwork(MIMO_Transformer):
         assert isinstance(obs_shapes, OrderedDict)
         self.obs_shapes = obs_shapes
 
-        self.transformer_nn_parameter_for_timesteps = (
-            transformer_nn_parameter_for_timesteps
-        )
+        self.transformer_nn_parameter_for_timesteps = transformer_nn_parameter_for_timesteps
 
         # set up different observation groups for @RNN_MIMO_MLP
         observation_group_shapes = OrderedDict()
@@ -1203,9 +1163,7 @@ class TransformerActorNetwork(MIMO_Transformer):
             assert goal_dict is not None
             # repeat the goal observation in time to match dimension with obs_dict
             mod = list(obs_dict.keys())[0]
-            goal_dict = TensorUtils.unsqueeze_expand_at(
-                goal_dict, size=obs_dict[mod].shape[1], dim=1
-            )
+            goal_dict = TensorUtils.unsqueeze_expand_at(goal_dict, size=obs_dict[mod].shape[1], dim=1)
 
         forward_kwargs = dict(obs=obs_dict, goal=goal_dict)
         outputs = super(TransformerActorNetwork, self).forward(**forward_kwargs)
@@ -1316,10 +1274,8 @@ class TransformerGMMActorNetwork(TransformerActorNetwork):
             "softplus": F.softplus,
             "exp": torch.exp,
         }
-        assert std_activation in self.activations, (
-            "std_activation must be one of: {}; instead got: {}".format(
-                self.activations.keys(), std_activation
-            )
+        assert std_activation in self.activations, "std_activation must be one of: {}; instead got: {}".format(
+            self.activations.keys(), std_activation
         )
         self.std_activation = std_activation
 
@@ -1351,9 +1307,7 @@ class TransformerGMMActorNetwork(TransformerActorNetwork):
             logits=(self.num_modes,),
         )
 
-    def forward_train(
-        self, obs_dict, actions=None, goal_dict=None, low_noise_eval=None
-    ):
+    def forward_train(self, obs_dict, actions=None, goal_dict=None, low_noise_eval=None):
         """
         Return full GMM distribution, which is useful for computing
         quantities necessary at train-time, like log-likelihood, KL
@@ -1369,9 +1323,7 @@ class TransformerGMMActorNetwork(TransformerActorNetwork):
             assert goal_dict is not None
             # repeat the goal observation in time to match dimension with obs_dict
             mod = list(obs_dict.keys())[0]
-            goal_dict = TensorUtils.unsqueeze_expand_at(
-                goal_dict, size=obs_dict[mod].shape[1], dim=1
-            )
+            goal_dict = TensorUtils.unsqueeze_expand_at(goal_dict, size=obs_dict[mod].shape[1], dim=1)
 
         forward_kwargs = dict(obs=obs_dict, goal=goal_dict)
 
@@ -1397,9 +1349,7 @@ class TransformerGMMActorNetwork(TransformerActorNetwork):
         # mixture components - make sure that `batch_shape` for the distribution is equal
         # to (batch_size, timesteps, num_modes) since MixtureSameFamily expects this shape
         component_distribution = D.Normal(loc=means, scale=scales)
-        component_distribution = D.Independent(
-            component_distribution, 1
-        )  # shift action dim to event shape
+        component_distribution = D.Independent(component_distribution, 1)  # shift action dim to event shape
 
         # unnormalized logits to categorical distribution for mixing the modes
         mixture_distribution = D.Categorical(logits=logits)
@@ -1425,9 +1375,7 @@ class TransformerGMMActorNetwork(TransformerActorNetwork):
         Returns:
             action (torch.Tensor): batch of actions from policy distribution
         """
-        out = self.forward_train(
-            obs_dict=obs_dict, actions=actions, goal_dict=goal_dict
-        )
+        out = self.forward_train(obs_dict=obs_dict, actions=actions, goal_dict=goal_dict)
         return out.sample()
 
     def _to_string(self):

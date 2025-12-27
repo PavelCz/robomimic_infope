@@ -88,33 +88,19 @@ class BaseConfig(Config):
 
         self.experiment.name = "test"  # name of experiment used to make log files
         self.experiment.validate = False  # whether to do validation or not
-        self.experiment.logging.terminal_output_to_txt = (
-            True  # whether to log stdout to txt file
-        )
+        self.experiment.logging.terminal_output_to_txt = True  # whether to log stdout to txt file
         self.experiment.logging.log_tb = True  # enable tensorboard logging
         self.experiment.logging.log_wandb = False  # enable wandb logging
         self.experiment.logging.wandb_proj_name = "debug"  # project name if using wandb
 
         ## save config - if and when to save model checkpoints ##
-        self.experiment.save.enabled = (
-            True  # whether model saving should be enabled or disabled
-        )
-        self.experiment.save.every_n_seconds = (
-            None  # save model every n seconds (set to None to disable)
-        )
-        self.experiment.save.every_n_epochs = (
-            50  # save model every n epochs (set to None to disable)
-        )
+        self.experiment.save.enabled = True  # whether model saving should be enabled or disabled
+        self.experiment.save.every_n_seconds = None  # save model every n seconds (set to None to disable)
+        self.experiment.save.every_n_epochs = 50  # save model every n epochs (set to None to disable)
         self.experiment.save.epochs = []  # save model on these specific epochs
-        self.experiment.save.on_best_validation = (
-            False  # save models that achieve best validation score
-        )
-        self.experiment.save.on_best_rollout_return = (
-            False  # save models that achieve best rollout return
-        )
-        self.experiment.save.on_best_rollout_success_rate = (
-            True  # save models that achieve best success rate
-        )
+        self.experiment.save.on_best_validation = False  # save models that achieve best validation score
+        self.experiment.save.on_best_rollout_return = False  # save models that achieve best rollout return
+        self.experiment.save.on_best_rollout_success_rate = True  # save models that achieve best success rate
 
         # epoch definitions - if not None, set an epoch to be this many gradient steps, else the full dataset size will be used
         self.experiment.epoch_every_n_steps = (
@@ -131,22 +117,18 @@ class BaseConfig(Config):
         ## rendering config ##
         self.experiment.render = False  # render on-screen or not
         self.experiment.render_video = True  # render evaluation rollouts to videos
-        self.experiment.keep_all_videos = False  # save all videos, instead of only saving those for saved model checkpoints
-        self.experiment.video_skip = (
-            5  # render video frame every n environment steps during rollout
+        self.experiment.keep_all_videos = (
+            False  # save all videos, instead of only saving those for saved model checkpoints
         )
+        self.experiment.video_skip = 5  # render video frame every n environment steps during rollout
 
         ## evaluation rollout config ##
         self.experiment.rollout.enabled = True  # enable evaluation rollouts
         self.experiment.rollout.n = 50  # number of rollouts per evaluation
         self.experiment.rollout.horizon = 400  # maximum number of env steps per rollout
         self.experiment.rollout.rate = 50  # do rollouts every @rate epochs
-        self.experiment.rollout.warmstart = (
-            0  # number of epochs to wait before starting rollouts
-        )
-        self.experiment.rollout.terminate_on_success = (
-            True  # end rollout early after task success
-        )
+        self.experiment.rollout.warmstart = 0  # number of epochs to wait before starting rollouts
+        self.experiment.rollout.terminate_on_success = True  # end rollout early after task success
 
         # for updating the evaluation env meta data
         self.experiment.env_meta_update_dict = Config()
@@ -308,9 +290,7 @@ class BaseConfig(Config):
 
         # Low Dim: Obs Randomizer settings
         self.observation.encoder.low_dim.obs_randomizer_class = None
-        self.observation.encoder.low_dim.obs_randomizer_kwargs = (
-            Config()
-        )  # No kwargs by default
+        self.observation.encoder.low_dim.obs_randomizer_kwargs = Config()  # No kwargs by default
         self.observation.encoder.low_dim.obs_randomizer_kwargs.do_not_lock_keys()
 
         # =============== RGB default encoder (ResNet backbone + linear layer output) ===============
@@ -363,16 +343,7 @@ class BaseConfig(Config):
     @property
     def use_goals(self):
         # whether the agent is goal-conditioned
-        return (
-            len(
-                [
-                    obs_key
-                    for modality in self.observation.modalities.goal.values()
-                    for obs_key in modality
-                ]
-            )
-            > 0
-        )
+        return len([obs_key for modality in self.observation.modalities.goal.values() for obs_key in modality]) > 0
 
     @property
     def all_obs_keys(self):

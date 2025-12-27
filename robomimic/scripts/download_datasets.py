@@ -133,34 +133,26 @@ if __name__ == "__main__":
     # load args
     download_tasks = args.tasks
     if "all" in download_tasks:
-        assert len(download_tasks) == 1, (
-            "all should be only tasks argument but got: {}".format(args.tasks)
-        )
+        assert len(download_tasks) == 1, "all should be only tasks argument but got: {}".format(args.tasks)
         download_tasks = ALL_TASKS
     elif "sim" in download_tasks:
-        assert len(download_tasks) == 1, (
-            "sim should be only tasks argument but got: {}".format(args.tasks)
-        )
+        assert len(download_tasks) == 1, "sim should be only tasks argument but got: {}".format(args.tasks)
         download_tasks = [task for task in ALL_TASKS if "real" not in task]
     elif "real" in download_tasks:
-        assert len(download_tasks) == 1, (
-            "real should be only tasks argument but got: {}".format(args.tasks)
-        )
+        assert len(download_tasks) == 1, "real should be only tasks argument but got: {}".format(args.tasks)
         download_tasks = [task for task in ALL_TASKS if "real" in task]
 
     download_dataset_types = args.dataset_types
     if "all" in download_dataset_types:
-        assert len(download_dataset_types) == 1, (
-            "all should be only dataset_types argument but got: {}".format(
-                args.dataset_types
-            )
+        assert len(download_dataset_types) == 1, "all should be only dataset_types argument but got: {}".format(
+            args.dataset_types
         )
         download_dataset_types = ALL_DATASET_TYPES
 
     download_hdf5_types = args.hdf5_types
     if "all" in download_hdf5_types:
-        assert len(download_hdf5_types) == 1, (
-            "all should be only hdf5_types argument but got: {}".format(args.hdf5_types)
+        assert len(download_hdf5_types) == 1, "all should be only hdf5_types argument but got: {}".format(
+            args.hdf5_types
         )
         download_hdf5_types = ALL_HDF5_TYPES
 
@@ -171,9 +163,7 @@ if __name__ == "__main__":
                 if dataset_type in download_dataset_types:
                     for hdf5_type in DATASET_REGISTRY[task][dataset_type]:
                         if hdf5_type in download_hdf5_types:
-                            download_dir = os.path.abspath(
-                                os.path.join(default_base_dir, task, dataset_type)
-                            )
+                            download_dir = os.path.abspath(os.path.join(default_base_dir, task, dataset_type))
                             print(
                                 "\nDownloading dataset:\n    task: {}\n    dataset type: {}\n    hdf5 type: {}\n    download path: {}".format(
                                     task, dataset_type, hdf5_type, download_dir
@@ -196,18 +186,14 @@ if __name__ == "__main__":
                                 if "real" in task:
                                     # real world datasets are still hosted at Stanford
                                     FileUtils.download_url(
-                                        url=DATASET_REGISTRY[task][dataset_type][
-                                            hdf5_type
-                                        ]["url"],
+                                        url=DATASET_REGISTRY[task][dataset_type][hdf5_type]["url"],
                                         download_dir=download_dir,
                                     )
                                 else:
                                     # sim datasets are hosted on HF
                                     FileUtils.download_file_from_hf(
                                         repo_id=HF_REPO_ID,
-                                        filename=DATASET_REGISTRY[task][dataset_type][
-                                            hdf5_type
-                                        ]["url"],
+                                        filename=DATASET_REGISTRY[task][dataset_type][hdf5_type]["url"],
                                         download_dir=download_dir,
                                         check_overwrite=True,
                                     )

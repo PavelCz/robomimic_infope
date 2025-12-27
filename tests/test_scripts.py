@@ -9,17 +9,18 @@ from collections import OrderedDict
 
 import h5py
 import numpy as np
+import torch
+from termcolor import colored
+
 import robomimic
 import robomimic.utils.test_utils as TestUtils
 import robomimic.utils.torch_utils as TorchUtils
-import torch
 from robomimic.config import Config
 from robomimic.scripts.playback_dataset import playback_dataset
 from robomimic.scripts.run_trained_agent import run_trained_agent
 from robomimic.scripts.train import train
 from robomimic.utils.log_utils import silence_stdout
 from robomimic.utils.torch_utils import dummy_context_mgr
-from termcolor import colored
 
 
 def get_checkpoint_to_test():
@@ -50,23 +51,19 @@ def get_checkpoint_to_test():
         # set up visual encoders
         conf.observation.encoder.rgb.core_class = "VisualCore"
         conf.observation.encoder.rgb.core_kwargs.feature_dimension = 64
-        conf.observation.encoder.rgb.core_kwargs.backbone_class = "ResNet18Conv"  # ResNet backbone for image observations (unused if no image observations)
-        conf.observation.encoder.rgb.core_kwargs.backbone_kwargs.pretrained = (
-            False  # kwargs for visual core
+        conf.observation.encoder.rgb.core_kwargs.backbone_class = (
+            "ResNet18Conv"  # ResNet backbone for image observations (unused if no image observations)
         )
-        conf.observation.encoder.rgb.core_kwargs.backbone_kwargs.input_coord_conv = (
-            False
+        conf.observation.encoder.rgb.core_kwargs.backbone_kwargs.pretrained = False  # kwargs for visual core
+        conf.observation.encoder.rgb.core_kwargs.backbone_kwargs.input_coord_conv = False
+        conf.observation.encoder.rgb.core_kwargs.pool_class = (
+            "SpatialSoftmax"  # Alternate options are "SpatialMeanPool" or None (no pooling)
         )
-        conf.observation.encoder.rgb.core_kwargs.pool_class = "SpatialSoftmax"  # Alternate options are "SpatialMeanPool" or None (no pooling)
-        conf.observation.encoder.rgb.core_kwargs.pool_kwargs.num_kp = (
-            32  # Default arguments for "SpatialSoftmax"
-        )
+        conf.observation.encoder.rgb.core_kwargs.pool_kwargs.num_kp = 32  # Default arguments for "SpatialSoftmax"
         conf.observation.encoder.rgb.core_kwargs.pool_kwargs.learnable_temperature = (
             False  # Default arguments for "SpatialSoftmax"
         )
-        conf.observation.encoder.rgb.core_kwargs.pool_kwargs.temperature = (
-            1.0  # Default arguments for "SpatialSoftmax"
-        )
+        conf.observation.encoder.rgb.core_kwargs.pool_kwargs.temperature = 1.0  # Default arguments for "SpatialSoftmax"
         conf.observation.encoder.rgb.core_kwargs.pool_kwargs.noise_std = 0.0
 
         # observation randomizer class - set to None to use no randomization, or 'CropRandomizer' to use crop randomization
@@ -74,9 +71,7 @@ def get_checkpoint_to_test():
 
         return conf
 
-    config = TestUtils.config_from_modifier(
-        base_config=config, config_modifier=image_modifier
-    )
+    config = TestUtils.config_from_modifier(base_config=config, config_modifier=image_modifier)
 
     # run training
     device = TorchUtils.get_torch_device(try_to_use_cuda=True)
@@ -119,9 +114,7 @@ def test_playback_script(silence=True, use_actions=False, use_obs=False):
 
         except Exception as e:
             # indicate failure by returning error string
-            ret = colored(
-                "failed with error:\n{}\n\n{}".format(e, traceback.format_exc()), "red"
-            )
+            ret = colored("failed with error:\n{}\n\n{}".format(e, traceback.format_exc()), "red")
 
         # delete output video
         TestUtils.maybe_remove_file(TestUtils.temp_video_path())
@@ -165,9 +158,7 @@ def test_run_agent_script(silence=True):
 
         except Exception as e:
             # indicate failure by returning error string
-            ret = colored(
-                "failed with error:\n{}\n\n{}".format(e, traceback.format_exc()), "red"
-            )
+            ret = colored("failed with error:\n{}\n\n{}".format(e, traceback.format_exc()), "red")
 
         # delete trained model directory, output video, and output dataset
         TestUtils.maybe_remove_dir(TestUtils.temp_model_dir_path())

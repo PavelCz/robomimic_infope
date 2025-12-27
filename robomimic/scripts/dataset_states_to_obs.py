@@ -55,11 +55,12 @@ from copy import deepcopy
 
 import h5py
 import numpy as np
+from tqdm import tqdm
+
 import robomimic.utils.env_utils as EnvUtils
 import robomimic.utils.file_utils as FileUtils
 import robomimic.utils.tensor_utils as TensorUtils
 from robomimic.envs.env_base import EnvBase
-from tqdm import tqdm
 
 
 def extract_trajectory(
@@ -183,9 +184,7 @@ def get_camera_info(
     # check for v1.5+ robosuite
     import robosuite
 
-    is_v15 = (robosuite.__version__.split(".")[0] == "1") and (
-        robosuite.__version__.split(".")[1] >= "5"
-    )
+    is_v15 = (robosuite.__version__.split(".")[0] == "1") and (robosuite.__version__.split(".")[1] >= "5")
 
     if camera_names is None:
         return None
@@ -195,30 +194,18 @@ def get_camera_info(
         K = env.get_camera_intrinsic_matrix(
             camera_name=cam_name, camera_height=camera_height, camera_width=camera_width
         )
-        R = env.get_camera_extrinsic_matrix(
-            camera_name=cam_name
-        )  # camera pose in world frame
+        R = env.get_camera_extrinsic_matrix(camera_name=cam_name)  # camera pose in world frame
         if "eye_in_hand" in cam_name:
             # convert extrinsic matrix to be relative to robot eef control frame
             assert cam_name.startswith("robot0") or cam_name.startswith("robot1")
             robot_ind = int(cam_name[5])
             if is_v15:
-                eef_site_name = (
-                    env.base_env.robots[robot_ind]
-                    .composite_controller.part_controllers["right"]
-                    .ref_name
-                )
+                eef_site_name = env.base_env.robots[robot_ind].composite_controller.part_controllers["right"].ref_name
             else:
                 eef_site_name = env.base_env.robots[robot_ind].controller.eef_name
-            eef_pos = np.array(
-                env.base_env.sim.data.site_xpos[
-                    env.base_env.sim.model.site_name2id(eef_site_name)
-                ]
-            )
+            eef_pos = np.array(env.base_env.sim.data.site_xpos[env.base_env.sim.model.site_name2id(eef_site_name)])
             eef_rot = np.array(
-                env.base_env.sim.data.site_xmat[
-                    env.base_env.sim.model.site_name2id(eef_site_name)
-                ].reshape([3, 3])
+                env.base_env.sim.data.site_xmat[env.base_env.sim.model.site_name2id(eef_site_name)].reshape([3, 3])
             )
             eef_pose = np.zeros((4, 4))  # eef pose in world frame
             eef_pose[:3, :3] = eef_rot
@@ -274,9 +261,7 @@ def dataset_states_to_obs(args):
         if len(args.camera_names) == 0:
             output_name = os.path.basename(args.dataset)[:-5] + "_ld.hdf5"
         else:
-            output_name = os.path.basename(args.dataset)[:-5] + "_im{}.hdf5".format(
-                args.camera_width
-            )
+            output_name = os.path.basename(args.dataset)[:-5] + "_im{}.hdf5".format(args.camera_width)
 
     output_path = os.path.join(os.path.dirname(args.dataset), output_name)
     f_out = h5py.File(output_path, "w")
@@ -293,9 +278,7 @@ def dataset_states_to_obs(args):
         initial_state = dict(states=states[0])
         if is_robosuite_env:
             initial_state["model"] = f["data/{}".format(ep)].attrs["model_file"]
-            initial_state["ep_meta"] = f["data/{}".format(ep)].attrs.get(
-                "ep_meta", None
-            )
+            initial_state["ep_meta"] = f["data/{}".format(ep)].attrs.get("ep_meta", None)
 
         # extract obs, rewards, dones
         actions = f["data/{}/actions".format(ep)][()]
@@ -331,9 +314,7 @@ def dataset_states_to_obs(args):
         ep_data_grp.create_dataset("rewards", data=np.array(traj["rewards"]))
         ep_data_grp.create_dataset("dones", data=np.array(traj["dones"]))
         if "actions_abs" in traj:
-            ep_data_grp.create_dataset(
-                "actions_abs", data=np.array(traj["actions_abs"])
-            )
+            ep_data_grp.create_dataset("actions_abs", data=np.array(traj["actions_abs"]))
         for k in traj["obs"]:
             if args.compress:
                 ep_data_grp.create_dataset(
@@ -342,9 +323,7 @@ def dataset_states_to_obs(args):
                     compression="gzip",
                 )
             else:
-                ep_data_grp.create_dataset(
-                    "obs/{}".format(k), data=np.array(traj["obs"][k])
-                )
+                ep_data_grp.create_dataset("obs/{}".format(k), data=np.array(traj["obs"][k]))
             if not args.exclude_next_obs:
                 if args.compress:
                     ep_data_grp.create_dataset(
@@ -353,28 +332,20 @@ def dataset_states_to_obs(args):
                         compression="gzip",
                     )
                 else:
-                    ep_data_grp.create_dataset(
-                        "next_obs/{}".format(k), data=np.array(traj["next_obs"][k])
-                    )
+                    ep_data_grp.create_dataset("next_obs/{}".format(k), data=np.array(traj["next_obs"][k]))
 
         # copy action dict (if applicable)
         if "data/{}/action_dict".format(ep) in f:
             action_dict = f["data/{}/action_dict".format(ep)]
             for k in action_dict:
-                ep_data_grp.create_dataset(
-                    "action_dict/{}".format(k), data=np.array(action_dict[k][()])
-                )
+                ep_data_grp.create_dataset("action_dict/{}".format(k), data=np.array(action_dict[k][()]))
 
         # episode metadata
         if is_robosuite_env:
-            ep_data_grp.attrs["model_file"] = traj["initial_state_dict"][
-                "model"
-            ]  # model xml for this episode
+            ep_data_grp.attrs["model_file"] = traj["initial_state_dict"]["model"]  # model xml for this episode
         if "ep_meta" in f["data/{}".format(ep)].attrs:
             ep_data_grp.attrs["ep_meta"] = f["data/{}".format(ep)].attrs["ep_meta"]
-        ep_data_grp.attrs["num_samples"] = traj["actions"].shape[
-            0
-        ]  # number of transitions in this episode
+        ep_data_grp.attrs["num_samples"] = traj["actions"].shape[0]  # number of transitions in this episode
 
         if camera_info is not None:
             assert is_robosuite_env
@@ -388,9 +359,7 @@ def dataset_states_to_obs(args):
 
     # global metadata
     data_grp.attrs["total"] = total_samples
-    data_grp.attrs["env_args"] = json.dumps(
-        env.serialize(), indent=4
-    )  # environment info
+    data_grp.attrs["env_args"] = json.dumps(env.serialize(), indent=4)  # environment info
     print("Wrote {} trajectories to {}".format(len(demos), output_path))
 
     f.close()

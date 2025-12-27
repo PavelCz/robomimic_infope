@@ -87,13 +87,9 @@ class IRIS(HBC, ValueAlgo):
         self.ac_dim = ac_dim
         self.device = device
 
-        self._subgoal_step_count = (
-            0  # current step count for deciding when to update subgoal
-        )
+        self._subgoal_step_count = 0  # current step count for deciding when to update subgoal
         self._current_subgoal = None  # latest subgoal
-        self._subgoal_update_interval = (
-            self.algo_config.subgoal_update_interval
-        )  # subgoal update frequency
+        self._subgoal_update_interval = self.algo_config.subgoal_update_interval  # subgoal update frequency
         self._subgoal_horizon = self.algo_config.value_planner.planner.subgoal_horizon
         self._actor_horizon = self.algo_config.actor.rnn.horizon
 
@@ -112,9 +108,7 @@ class IRIS(HBC, ValueAlgo):
         )
 
         self.actor_goal_shapes = self.planner.subgoal_shapes
-        assert not algo_config.latent_subgoal.enabled, (
-            "IRIS does not support latent subgoals"
-        )
+        assert not algo_config.latent_subgoal.enabled, "IRIS does not support latent subgoals"
 
         # only for the actor: override goal modalities and shapes to match the subgoal set by the planner
         actor_obs_key_shapes = deepcopy(obs_key_shapes)
@@ -124,9 +118,7 @@ class IRIS(HBC, ValueAlgo):
                 assert actor_obs_key_shapes[k] == self.actor_goal_shapes[k]
         actor_obs_key_shapes.update(self.actor_goal_shapes)
 
-        goal_modalities = {
-            obs_modality: [] for obs_modality in ObsUtils.OBS_MODALITY_CLASSES.keys()
-        }
+        goal_modalities = {obs_modality: [] for obs_modality in ObsUtils.OBS_MODALITY_CLASSES.keys()}
         for k in self.actor_goal_shapes.keys():
             goal_modalities[ObsUtils.OBS_KEYS_TO_MODALITIES[k]].append(k)
 
@@ -168,18 +160,12 @@ class IRIS(HBC, ValueAlgo):
                 high=self.global_config.train.seq_length,
                 size=(batch["actions"].shape[0],),
             )
-            goal_obs = TensorUtils.gather_sequence(
-                batch["next_obs"], policy_subgoal_indices
-            )
-            goal_obs = TensorUtils.to_float(
-                TensorUtils.to_device(goal_obs, self.device)
-            )
+            goal_obs = TensorUtils.gather_sequence(batch["next_obs"], policy_subgoal_indices)
+            goal_obs = TensorUtils.to_float(TensorUtils.to_device(goal_obs, self.device))
             input_batch["actor"]["goal_obs"] = goal_obs
         else:
             # otherwise, use planner subgoal target as goal for the policy
-            input_batch["actor"]["goal_obs"] = input_batch["planner"]["planner"][
-                "target_subgoals"
-            ]
+            input_batch["actor"]["goal_obs"] = input_batch["planner"]["planner"]["target_subgoals"]
 
         # we move to device first before float conversion because image observation modalities will be uint8 -
         # this minimizes the amount of data transferred to GPU
@@ -210,6 +196,4 @@ class IRIS(HBC, ValueAlgo):
         Returns:
             value (torch.Tensor): value tensor
         """
-        return self.planner.get_state_action_value(
-            obs_dict=obs_dict, actions=actions, goal_dict=goal_dict
-        )
+        return self.planner.get_state_action_value(obs_dict=obs_dict, actions=actions, goal_dict=goal_dict)

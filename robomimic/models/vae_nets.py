@@ -100,9 +100,7 @@ class Prior(Module):
         """
         super(Prior, self).__init__()
 
-        assert isinstance(param_shapes, OrderedDict) and isinstance(
-            param_obs_dependent, OrderedDict
-        )
+        assert isinstance(param_shapes, OrderedDict) and isinstance(param_obs_dependent, OrderedDict)
         assert set(param_shapes.keys()) == set(param_obs_dependent.keys())
         self.param_shapes = param_shapes
         self.param_obs_dependent = param_obs_dependent
@@ -129,9 +127,7 @@ class Prior(Module):
                 mlp_output_shapes[pp] = self.param_shapes[pp]
             else:
                 # learnable prior parameters independent of observation
-                param_init = torch.randn(*self.param_shapes[pp]) / np.sqrt(
-                    np.prod(self.param_shapes[pp])
-                )
+                param_init = torch.randn(*self.param_shapes[pp]) / np.sqrt(np.prod(self.param_shapes[pp]))
                 self.prior_params[pp] = torch.nn.Parameter(param_init)
 
         # only make networks if we have obs-dependent prior parameters
@@ -231,9 +227,7 @@ class Prior(Module):
         for pp in self.param_shapes:
             if not self.param_obs_dependent[pp]:
                 # ensure leading dimension will be consistent with other params
-                prior_params[pp] = TensorUtils.expand_at(
-                    self.prior_params[pp], size=batch_size, dim=0
-                )
+                prior_params[pp] = TensorUtils.expand_at(self.prior_params[pp], size=batch_size, dim=0)
 
         # ensure leading dimensions are all consistent
         TensorUtils.assert_size_at_dim(
@@ -402,9 +396,7 @@ class GaussianPrior(Prior):
 
         # check consistency between n and obs_dict
         if self._input_dependent:
-            TensorUtils.assert_size_at_dim(
-                obs_dict, size=n, dim=0, msg="obs dict and n mismatch in @sample"
-            )
+            TensorUtils.assert_size_at_dim(obs_dict, size=n, dim=0, msg="obs dict and n mismatch in @sample")
 
         if self.learnable:
             # forward to get parameters
@@ -423,28 +415,19 @@ class GaussianPrior(Prior):
 
                 # make uniform weights (in the case that weights were not learned)
                 if not self.gmm_learn_weights:
-                    prior_weights = (
-                        torch.ones(n, self.num_modes).to(prior_means.device)
-                        / self.num_modes
-                    )
+                    prior_weights = torch.ones(n, self.num_modes).to(prior_means.device) / self.num_modes
 
                 # sample modes
                 gmm_mode_indices = D.Categorical(prior_weights).sample()
 
                 # get GMM centers and sample using reparametrization trick
-                selected_means = TensorUtils.gather_sequence(
-                    prior_means, indices=gmm_mode_indices
-                )
-                selected_logvars = TensorUtils.gather_sequence(
-                    prior_logvars, indices=gmm_mode_indices
-                )
+                selected_means = TensorUtils.gather_sequence(prior_means, indices=gmm_mode_indices)
+                selected_logvars = TensorUtils.gather_sequence(prior_logvars, indices=gmm_mode_indices)
                 z = TorchUtils.reparameterize(selected_means, selected_logvars)
 
             else:
                 # learned unimodal Gaussian - remove mode dim and sample from Gaussian using reparametrization trick
-                z = TorchUtils.reparameterize(
-                    prior_means[:, 0, :], prior_logvars[:, 0, :]
-                )
+                z = TorchUtils.reparameterize(prior_means[:, 0, :], prior_logvars[:, 0, :])
 
         else:
             # sample from N(0, 1)
@@ -484,9 +467,7 @@ class GaussianPrior(Prior):
             return LossUtils.KLD_0_1_loss(mu=mu, logvar=logvar)
 
         # forward to get parameters
-        out = self.forward(
-            batch_size=mu.shape[0], obs_dict=obs_dict, goal_dict=goal_dict
-        )
+        out = self.forward(batch_size=mu.shape[0], obs_dict=obs_dict, goal_dict=goal_dict)
         prior_means, prior_logvars, prior_logweights = (
             out["means"],
             out["logvars"],
@@ -530,9 +511,7 @@ class GaussianPrior(Prior):
             prior_params (dict): dictionary containing prior parameters
         """
         assert self.learnable
-        prior_params = super(GaussianPrior, self).forward(
-            batch_size=batch_size, obs_dict=obs_dict, goal_dict=goal_dict
-        )
+        prior_params = super(GaussianPrior, self).forward(batch_size=batch_size, obs_dict=obs_dict, goal_dict=goal_dict)
 
         if self.use_gmm and self.gmm_learn_weights:
             # normalize learned weight outputs to sum to 1
@@ -556,23 +535,15 @@ class GaussianPrior(Prior):
         msg += textwrap.indent("latent_dim={}\n".format(self.latent_dim), indent)
         msg += textwrap.indent("latent_clip={}\n".format(self.latent_clip), indent)
         msg += textwrap.indent("learnable={}\n".format(self.learnable), indent)
-        msg += textwrap.indent(
-            "input_dependent={}\n".format(self._input_dependent), indent
-        )
+        msg += textwrap.indent("input_dependent={}\n".format(self._input_dependent), indent)
         msg += textwrap.indent("use_gmm={}\n".format(self.use_gmm), indent)
         if self.use_gmm:
             msg += textwrap.indent("gmm_num_nodes={}\n".format(self.num_modes), indent)
-            msg += textwrap.indent(
-                "gmm_learn_weights={}\n".format(self.gmm_learn_weights), indent
-            )
+            msg += textwrap.indent("gmm_learn_weights={}\n".format(self.gmm_learn_weights), indent)
         if self.learnable:
             if self.prior_module is not None:
-                msg += textwrap.indent(
-                    "\nprior_module={}\n".format(self.prior_module), indent
-                )
-            msg += textwrap.indent(
-                "prior_params={}\n".format(self.prior_params), indent
-            )
+                msg += textwrap.indent("\nprior_module={}\n".format(self.prior_module), indent)
+            msg += textwrap.indent("prior_params={}\n".format(self.prior_params), indent)
         msg = header + "(\n" + msg + ")"
         return msg
 
@@ -696,9 +667,7 @@ class CategoricalPrior(Prior):
 
         # check consistency between n and obs_dict
         if self._input_dependent:
-            TensorUtils.assert_size_at_dim(
-                obs_dict, size=n, dim=0, msg="obs dict and n mismatch in @sample"
-            )
+            TensorUtils.assert_size_at_dim(obs_dict, size=n, dim=0, msg="obs dict and n mismatch in @sample")
 
         if self.learnable:
             # forward to get parameters
@@ -713,19 +682,10 @@ class CategoricalPrior(Prior):
             # try to include a categorical sample for each class if possible (ensuring rough uniformity)
             if (self.latent_dim == 1) and (self.categorical_dim <= n):
                 # include samples [0, 1, ..., C - 1] and then repeat until batch is filled
-                dist_samples = (
-                    torch.arange(n)
-                    .remainder(self.categorical_dim)
-                    .unsqueeze(-1)
-                    .to(self.device)
-                )
+                dist_samples = torch.arange(n).remainder(self.categorical_dim).unsqueeze(-1).to(self.device)
             else:
                 # sample one-hot latents from uniform categorical distribution for each latent dimension
-                probs = (
-                    torch.ones(n, self.latent_dim, self.categorical_dim)
-                    .float()
-                    .to(self.device)
-                )
+                probs = torch.ones(n, self.latent_dim, self.categorical_dim).float().to(self.device)
                 dist_samples = D.Categorical(probs=probs).sample()
             z = TensorUtils.to_one_hot(dist_samples, num_class=self.categorical_dim)
 
@@ -753,9 +713,7 @@ class CategoricalPrior(Prior):
         Returns:
             kl_loss (torch.Tensor): KL divergence loss
         """
-        logits = posterior_params["logit"].reshape(
-            -1, self.latent_dim, self.categorical_dim
-        )
+        logits = posterior_params["logit"].reshape(-1, self.latent_dim, self.categorical_dim)
         if not self.learnable:
             # prior logits correspond to uniform categorical distribution
             prior_logits = torch.zeros_like(logits)
@@ -794,9 +752,7 @@ class CategoricalPrior(Prior):
             prior_params (dict): dictionary containing prior parameters
         """
         assert self.learnable
-        return super(CategoricalPrior, self).forward(
-            batch_size=batch_size, obs_dict=obs_dict, goal_dict=goal_dict
-        )
+        return super(CategoricalPrior, self).forward(batch_size=batch_size, obs_dict=obs_dict, goal_dict=goal_dict)
 
     def __repr__(self):
         """Pretty print network"""
@@ -804,21 +760,13 @@ class CategoricalPrior(Prior):
         msg = ""
         indent = " " * 4
         msg += textwrap.indent("latent_dim={}\n".format(self.latent_dim), indent)
-        msg += textwrap.indent(
-            "categorical_dim={}\n".format(self.categorical_dim), indent
-        )
+        msg += textwrap.indent("categorical_dim={}\n".format(self.categorical_dim), indent)
         msg += textwrap.indent("learnable={}\n".format(self.learnable), indent)
-        msg += textwrap.indent(
-            "input_dependent={}\n".format(self._input_dependent), indent
-        )
+        msg += textwrap.indent("input_dependent={}\n".format(self._input_dependent), indent)
         if self.learnable:
             if self.prior_module is not None:
-                msg += textwrap.indent(
-                    "\nprior_module={}\n".format(self.prior_module), indent
-                )
-            msg += textwrap.indent(
-                "prior_params={}\n".format(self.prior_params), indent
-            )
+                msg += textwrap.indent("\nprior_module={}\n".format(self.prior_module), indent)
+            msg += textwrap.indent("prior_params={}\n".format(self.prior_params), indent)
         msg = header + "(\n" + msg + ")"
         return msg
 
@@ -1010,11 +958,7 @@ class VAE(torch.nn.Module):
 
         # check for conditioning (cVAE)
         self._is_cvae = False
-        self.condition_shapes = (
-            deepcopy(condition_shapes)
-            if condition_shapes is not None
-            else OrderedDict()
-        )
+        self.condition_shapes = deepcopy(condition_shapes) if condition_shapes is not None else OrderedDict()
         if len(self.condition_shapes) > 0:
             # this is a cVAE - we learn a conditional distribution p(X | Y)
             assert isinstance(self.condition_shapes, OrderedDict)
@@ -1025,15 +969,11 @@ class VAE(torch.nn.Module):
                 "cVAE must be conditioned in decoder and/or prior"
             )
             if self.prior_is_conditioned:
-                assert prior_learn, (
-                    "to pass conditioning inputs to prior, prior must be learned"
-                )
+                assert prior_learn, "to pass conditioning inputs to prior, prior must be learned"
 
         # check for goal conditioning
         self._is_goal_conditioned = False
-        self.goal_shapes = (
-            deepcopy(goal_shapes) if goal_shapes is not None else OrderedDict()
-        )
+        self.goal_shapes = deepcopy(goal_shapes) if goal_shapes is not None else OrderedDict()
         if len(self.goal_shapes) > 0:
             assert self._is_cvae, "to condition VAE on goals, it must be a cVAE"
             assert isinstance(self.goal_shapes, OrderedDict)
@@ -1045,20 +985,14 @@ class VAE(torch.nn.Module):
         # determines whether outputs are squashed with tanh and if so, to what scaling
         assert not (output_scales is not None and output_ranges is not None)
         self.output_squash = output_squash
-        self.output_scales = (
-            output_scales if output_scales is not None else OrderedDict()
-        )
-        self.output_ranges = (
-            output_ranges if output_ranges is not None else OrderedDict()
-        )
+        self.output_scales = output_scales if output_scales is not None else OrderedDict()
+        self.output_ranges = output_ranges if output_ranges is not None else OrderedDict()
 
         assert set(self.output_squash) == set(self.output_scales.keys())
         assert set(self.output_squash).issubset(set(self.output_shapes))
 
         # decoder settings
-        self.decoder_reconstruction_sum_across_elements = (
-            decoder_reconstruction_sum_across_elements
-        )
+        self.decoder_reconstruction_sum_across_elements = decoder_reconstruction_sum_across_elements
 
         # prior parameters
         self.prior_learn = prior_learn
@@ -1068,9 +1002,7 @@ class VAE(torch.nn.Module):
         self.prior_gmm_learn_weights = prior_gmm_learn_weights
         self.prior_use_categorical = prior_use_categorical
         self.prior_categorical_dim = prior_categorical_dim
-        self.prior_categorical_gumbel_softmax_hard = (
-            prior_categorical_gumbel_softmax_hard
-        )
+        self.prior_categorical_gumbel_softmax_hard = prior_categorical_gumbel_softmax_hard
         assert np.sum([self.prior_use_gmm, self.prior_use_categorical]) <= 1
 
         # for obs core
@@ -1227,9 +1159,7 @@ class VAE(torch.nn.Module):
         """
         if self.prior_use_categorical:
             # reshape to [B, D, C] to take softmax across categorical classes
-            logits = posterior_params["logit"].reshape(
-                -1, self.latent_dim, self.prior_categorical_dim
-            )
+            logits = posterior_params["logit"].reshape(-1, self.latent_dim, self.prior_categorical_dim)
             z = F.gumbel_softmax(
                 logits=logits,
                 tau=self._gumbel_temperature,
@@ -1292,9 +1222,7 @@ class VAE(torch.nn.Module):
 
         for k, v_range in self.output_ranges.items():
             assert v_range[1] > v_range[0]
-            recons[k] = (
-                torch.sigmoid(recons[k]) * (v_range[1] - v_range[0]) + v_range[0]
-            )
+            recons[k] = torch.sigmoid(recons[k]) * (v_range[1] - v_range[0]) + v_range[0]
         return recons
 
     def sample_prior(self, n, conditions=None, goals=None):
@@ -1385,9 +1313,7 @@ class VAE(torch.nn.Module):
             loss /= num_mods
         return loss
 
-    def forward(
-        self, inputs, outputs, conditions=None, goals=None, freeze_encoder=False
-    ):
+    def forward(self, inputs, outputs, conditions=None, goals=None, freeze_encoder=False):
         """
         A full pass through the VAE network to construct KL and reconstruction
         losses.

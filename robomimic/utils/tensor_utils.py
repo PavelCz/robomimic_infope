@@ -27,11 +27,7 @@ def recursive_dict_list_tuple_apply(x, type_func_dict):
     assert dict not in type_func_dict
 
     if isinstance(x, (dict, collections.OrderedDict)):
-        new_x = (
-            collections.OrderedDict()
-            if isinstance(x, collections.OrderedDict)
-            else dict()
-        )
+        new_x = collections.OrderedDict() if isinstance(x, collections.OrderedDict) else dict()
         for k, v in x.items():
             new_x[k] = recursive_dict_list_tuple_apply(v, type_func_dict)
         return new_x
@@ -530,16 +526,10 @@ def reshape_dimensions(x, begin_axis, end_axis, target_dims):
     return recursive_dict_list_tuple_apply(
         x,
         {
-            torch.Tensor: lambda x,
-            b=begin_axis,
-            e=end_axis,
-            t=target_dims: reshape_dimensions_single(
+            torch.Tensor: lambda x, b=begin_axis, e=end_axis, t=target_dims: reshape_dimensions_single(
                 x, begin_axis=b, end_axis=e, target_dims=t
             ),
-            np.ndarray: lambda x,
-            b=begin_axis,
-            e=end_axis,
-            t=target_dims: reshape_dimensions_single(
+            np.ndarray: lambda x, b=begin_axis, e=end_axis, t=target_dims: reshape_dimensions_single(
                 x, begin_axis=b, end_axis=e, target_dims=t
             ),
             type(None): lambda x: x,
@@ -679,9 +669,7 @@ def named_reduce(x, reduction, dim):
     Returns:
         y (dict or list or tuple): new nested dict-list-tuple
     """
-    return map_tensor(
-        x, func=lambda t, r=reduction, d=dim: named_reduce_single(t, r, d)
-    )
+    return map_tensor(x, func=lambda t, r=reduction, d=dim: named_reduce_single(t, r, d))
 
 
 def gather_along_dim_with_dim_single(x, target_dim, source_dim, indices):
@@ -742,10 +730,7 @@ def gather_along_dim_with_dim(x, target_dim, source_dim, indices):
     """
     return map_tensor(
         x,
-        lambda y,
-        t=target_dim,
-        s=source_dim,
-        i=indices: gather_along_dim_with_dim_single(y, t, s, i),
+        lambda y, t=target_dim, s=source_dim, i=indices: gather_along_dim_with_dim_single(y, t, s, i),
     )
 
 
@@ -761,9 +746,7 @@ def gather_sequence_single(seq, indices):
     Return:
         y (torch.Tensor): indexed tensor of shape [B, ....]
     """
-    return gather_along_dim_with_dim_single(
-        seq, target_dim=1, source_dim=0, indices=indices
-    )
+    return gather_along_dim_with_dim_single(seq, target_dim=1, source_dim=0, indices=indices)
 
 
 def gather_sequence(seq, indices):
@@ -836,16 +819,12 @@ def pad_sequence(seq, padding, batched=False, pad_same=True, pad_values=None):
     return recursive_dict_list_tuple_apply(
         seq,
         {
-            torch.Tensor: lambda x,
-            p=padding,
-            b=batched,
-            ps=pad_same,
-            pv=pad_values: pad_sequence_single(x, p, b, ps, pv),
-            np.ndarray: lambda x,
-            p=padding,
-            b=batched,
-            ps=pad_same,
-            pv=pad_values: pad_sequence_single(x, p, b, ps, pv),
+            torch.Tensor: lambda x, p=padding, b=batched, ps=pad_same, pv=pad_values: pad_sequence_single(
+                x, p, b, ps, pv
+            ),
+            np.ndarray: lambda x, p=padding, b=batched, ps=pad_same, pv=pad_values: pad_sequence_single(
+                x, p, b, ps, pv
+            ),
             type(None): lambda x: x,
         },
     )
@@ -960,9 +939,7 @@ def flatten_nested_dict_list(d, parent_key="", sep="_", item_key=""):
         return [(new_key, d)]
 
 
-def time_distributed(
-    inputs, op, activation=None, inputs_as_kwargs=False, inputs_as_args=False, **kwargs
-):
+def time_distributed(inputs, op, activation=None, inputs_as_kwargs=False, inputs_as_args=False, **kwargs):
     """
     Apply function @op to all tensors in nested dictionary or list or tuple @inputs in both the
     batch (B) and time (T) dimension, where the tensors are expected to have shape [B, T, ...].
@@ -992,7 +969,5 @@ def time_distributed(
 
     if activation is not None:
         outputs = map_tensor(outputs, activation)
-    outputs = reshape_dimensions(
-        outputs, begin_axis=0, end_axis=0, target_dims=(batch_size, seq_len)
-    )
+    outputs = reshape_dimensions(outputs, begin_axis=0, end_axis=0, target_dims=(batch_size, seq_len))
     return outputs

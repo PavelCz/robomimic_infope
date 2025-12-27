@@ -117,17 +117,13 @@ if __name__ == "__main__":
     # load args
     download_tasks = args.tasks
     if "all" in download_tasks:
-        assert len(download_tasks) == 1, (
-            "all should be only tasks argument but got: {}".format(args.tasks)
-        )
+        assert len(download_tasks) == 1, "all should be only tasks argument but got: {}".format(args.tasks)
         download_tasks = ALL_TASKS
 
     download_dataset_types = args.dataset_types
     if "all" in download_dataset_types:
-        assert len(download_dataset_types) == 1, (
-            "all should be only dataset_types argument but got: {}".format(
-                args.dataset_types
-            )
+        assert len(download_dataset_types) == 1, "all should be only dataset_types argument but got: {}".format(
+            args.dataset_types
         )
         download_dataset_types = ALL_DATASET_TYPES
 
@@ -141,12 +137,8 @@ if __name__ == "__main__":
 
     # Verify user acknowledgement if we're not doing a dry run
     if not args.dry_run:
-        user_response = input(
-            f"Warning: requested datasets will take a total of {total_size}GB. Proceed? y/n\n"
-        )
-        assert user_response.lower() in {"yes", "y"}, (
-            f"Did not receive confirmation. Aborting download."
-        )
+        user_response = input(f"Warning: requested datasets will take a total of {total_size}GB. Proceed? y/n\n")
+        assert user_response.lower() in {"yes", "y"}, f"Did not receive confirmation. Aborting download."
 
     # download requested datasets
     for task in MOMART_DATASET_REGISTRY:
@@ -154,9 +146,7 @@ if __name__ == "__main__":
             for dataset_type in MOMART_DATASET_REGISTRY[task]:
                 if dataset_type in download_dataset_types:
                     dataset_info = MOMART_DATASET_REGISTRY[task][dataset_type]
-                    download_dir = os.path.abspath(
-                        os.path.join(default_base_dir, task, dataset_type)
-                    )
+                    download_dir = os.path.abspath(os.path.join(default_base_dir, task, dataset_type))
                     print(
                         f"\nDownloading dataset:\n"
                         f"    task: {task}\n"

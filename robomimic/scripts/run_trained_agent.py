@@ -59,12 +59,13 @@ from copy import deepcopy
 import h5py
 import imageio
 import numpy as np
+import torch
+
 import robomimic
 import robomimic.utils.file_utils as FileUtils
 import robomimic.utils.obs_utils as ObsUtils
 import robomimic.utils.tensor_utils as TensorUtils
 import robomimic.utils.torch_utils as TorchUtils
-import torch
 from robomimic.algo import RolloutPolicy
 from robomimic.envs.env_base import EnvBase
 from robomimic.envs.wrappers import EnvWrapper
@@ -115,9 +116,7 @@ def rollout(
     results = {}
     video_count = 0  # video frame counter
     total_reward = 0.0
-    traj = dict(
-        actions=[], rewards=[], dones=[], states=[], initial_state_dict=state_dict
-    )
+    traj = dict(actions=[], rewards=[], dones=[], states=[], initial_state_dict=state_dict)
     if return_obs:
         # store observations too
         traj.update(dict(obs=[], next_obs=[]))
@@ -148,9 +147,7 @@ def rollout(
                                 camera_name=cam_name,
                             )
                         )
-                    video_img = np.concatenate(
-                        video_img, axis=1
-                    )  # concatenate horizontally
+                    video_img = np.concatenate(video_img, axis=1)  # concatenate horizontally
                     video_writer.append_data(video_img)
                 video_count += 1
 
@@ -179,9 +176,7 @@ def rollout(
     if return_obs:
         # convert list of dict to dict of list for obs dictionaries (for convenient writes to hdf5 dataset)
         traj["obs"] = TensorUtils.list_of_flat_dict_to_dict_of_list(traj["obs"])
-        traj["next_obs"] = TensorUtils.list_of_flat_dict_to_dict_of_list(
-            traj["next_obs"]
-        )
+        traj["next_obs"] = TensorUtils.list_of_flat_dict_to_dict_of_list(traj["next_obs"])
 
     # list to numpy array
     for k in traj:
@@ -211,9 +206,7 @@ def run_trained_agent(args):
     device = TorchUtils.get_torch_device(try_to_use_cuda=True)
 
     # restore policy
-    policy, ckpt_dict = FileUtils.policy_from_checkpoint(
-        ckpt_path=ckpt_path, device=device, verbose=True
-    )
+    policy, ckpt_dict = FileUtils.policy_from_checkpoint(ckpt_path=ckpt_path, device=device, verbose=True)
 
     # read rollout settings
     rollout_num_episodes = args.n_rollouts
@@ -272,21 +265,13 @@ def run_trained_agent(args):
             ep_data_grp.create_dataset("dones", data=np.array(traj["dones"]))
             if args.dataset_obs:
                 for k in traj["obs"]:
-                    ep_data_grp.create_dataset(
-                        "obs/{}".format(k), data=np.array(traj["obs"][k])
-                    )
-                    ep_data_grp.create_dataset(
-                        "next_obs/{}".format(k), data=np.array(traj["next_obs"][k])
-                    )
+                    ep_data_grp.create_dataset("obs/{}".format(k), data=np.array(traj["obs"][k]))
+                    ep_data_grp.create_dataset("next_obs/{}".format(k), data=np.array(traj["next_obs"][k]))
 
             # episode metadata
             if "model" in traj["initial_state_dict"]:
-                ep_data_grp.attrs["model_file"] = traj["initial_state_dict"][
-                    "model"
-                ]  # model xml for this episode
-            ep_data_grp.attrs["num_samples"] = traj["actions"].shape[
-                0
-            ]  # number of transitions in this episode
+                ep_data_grp.attrs["model_file"] = traj["initial_state_dict"]["model"]  # model xml for this episode
+            ep_data_grp.attrs["num_samples"] = traj["actions"].shape[0]  # number of transitions in this episode
             total_samples += traj["actions"].shape[0]
 
     rollout_stats = TensorUtils.list_of_flat_dict_to_dict_of_list(rollout_stats)
@@ -301,9 +286,7 @@ def run_trained_agent(args):
     if write_dataset:
         # global metadata
         data_grp.attrs["total"] = total_samples
-        data_grp.attrs["env_args"] = json.dumps(
-            env.serialize(), indent=4
-        )  # environment info
+        data_grp.attrs["env_args"] = json.dumps(env.serialize(), indent=4)  # environment info
         data_writer.close()
         print("Wrote dataset trajectories to {}".format(args.dataset_path))
 

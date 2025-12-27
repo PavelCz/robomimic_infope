@@ -340,13 +340,9 @@ def set_env_specific_obs_processing(env_meta=None, env_type=None, env=None):
             unprocess_frame,
         )
 
-        DepthModality.set_obs_processor(
-            processor=(lambda obs: process_frame(frame=obs, channel_dim=1, scale=None))
-        )
+        DepthModality.set_obs_processor(processor=(lambda obs: process_frame(frame=obs, channel_dim=1, scale=None)))
         DepthModality.set_obs_unprocessor(
-            unprocessor=(
-                lambda obs: unprocess_frame(frame=obs, channel_dim=1, scale=None)
-            )
+            unprocessor=(lambda obs: unprocess_frame(frame=obs, channel_dim=1, scale=None))
         )
 
 

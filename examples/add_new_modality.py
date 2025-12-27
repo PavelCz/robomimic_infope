@@ -6,9 +6,10 @@ your environment's observations
 """
 
 import numpy as np
+import torch
+
 import robomimic
 import robomimic.utils.tensor_utils as TensorUtils
-import torch
 from robomimic.config.bc_config import BCConfig
 from robomimic.models import EncoderCore, Randomizer
 from robomimic.utils.obs_utils import Modality, ScanModality
@@ -204,15 +205,11 @@ class CustomImageRandomizer(Randomizer):
 if __name__ == "__main__":
     # Now, we can directly reference the classes in our config!
     config = BCConfig()
-    config.observation.encoder.custom_image.core_class = (
-        "CustomImageEncoderCore"  # Custom class, in string form
-    )
+    config.observation.encoder.custom_image.core_class = "CustomImageEncoderCore"  # Custom class, in string form
     config.observation.encoder.custom_image.core_kwargs.welcome_str = (
         "hi there!"  # Any custom arguments, of any primitive type that is json-able
     )
-    config.observation.encoder.custom_image.obs_randomizer_class = (
-        "CustomImageRandomizer"
-    )
+    config.observation.encoder.custom_image.obs_randomizer_class = "CustomImageRandomizer"
     config.observation.encoder.custom_image.obs_randomizer_kwargs.num_rand = 3
     config.observation.encoder.custom_image.obs_randomizer_kwargs.noise_scale = 0.05
 

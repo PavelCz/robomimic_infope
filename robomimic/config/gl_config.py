@@ -18,9 +18,7 @@ class GLConfig(BaseConfig):
         """
 
         # optimization parameters
-        self.algo.optim_params.goal_network.learning_rate.initial = (
-            1e-4  # goal network learning rate
-        )
+        self.algo.optim_params.goal_network.learning_rate.initial = 1e-4  # goal network learning rate
         self.algo.optim_params.goal_network.learning_rate.decay_factor = (
             0.1  # factor to decay LR by (if epoch schedule non-empty)
         )
@@ -36,40 +34,24 @@ class GLConfig(BaseConfig):
         # ================== VAE config ==================
         self.algo.vae.enabled = True  # set to true to use VAE network
         self.algo.vae.latent_dim = 16  # VAE latent dimension
-        self.algo.vae.latent_clip = (
-            None  # clip latent space when decoding (set to None to disable)
-        )
+        self.algo.vae.latent_clip = None  # clip latent space when decoding (set to None to disable)
         self.algo.vae.kl_weight = 1.0  # beta-VAE weight to scale KL loss relative to reconstruction loss in ELBO
 
         # VAE decoder settings
-        self.algo.vae.decoder.is_conditioned = (
-            True  # whether decoder should condition on observation
-        )
-        self.algo.vae.decoder.reconstruction_sum_across_elements = (
-            False  # sum instead of mean for reconstruction loss
-        )
+        self.algo.vae.decoder.is_conditioned = True  # whether decoder should condition on observation
+        self.algo.vae.decoder.reconstruction_sum_across_elements = False  # sum instead of mean for reconstruction loss
 
         # VAE prior settings
-        self.algo.vae.prior.learn = (
-            False  # learn Gaussian / GMM prior instead of N(0, 1)
-        )
-        self.algo.vae.prior.is_conditioned = (
-            False  # whether to condition prior on observations
-        )
+        self.algo.vae.prior.learn = False  # learn Gaussian / GMM prior instead of N(0, 1)
+        self.algo.vae.prior.is_conditioned = False  # whether to condition prior on observations
         self.algo.vae.prior.use_gmm = False  # whether to use GMM prior
         self.algo.vae.prior.gmm_num_modes = 10  # number of GMM modes
         self.algo.vae.prior.gmm_learn_weights = False  # whether to learn GMM weights
         self.algo.vae.prior.use_categorical = False  # whether to use categorical prior
-        self.algo.vae.prior.categorical_dim = (
-            10  # the number of categorical classes for each latent dimension
-        )
-        self.algo.vae.prior.categorical_gumbel_softmax_hard = (
-            False  # use hard selection in forward pass
-        )
+        self.algo.vae.prior.categorical_dim = 10  # the number of categorical classes for each latent dimension
+        self.algo.vae.prior.categorical_gumbel_softmax_hard = False  # use hard selection in forward pass
         self.algo.vae.prior.categorical_init_temp = 1.0  # initial gumbel-softmax temp
-        self.algo.vae.prior.categorical_temp_anneal_step = (
-            0.001  # linear temp annealing rate
-        )
+        self.algo.vae.prior.categorical_temp_anneal_step = 0.001  # linear temp annealing rate
         self.algo.vae.prior.categorical_min_temp = 0.3  # lowest gumbel-softmax temp
 
         self.algo.vae.encoder_layer_dims = (300, 400)  # encoder MLP layer dimensions

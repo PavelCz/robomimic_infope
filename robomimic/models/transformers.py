@@ -64,10 +64,7 @@ class PositionalEncoding(nn.Module):
 
         # computing 1/n^(i/d) in log space and then exponentiating and fixing the shape
         div_term = (
-            torch.exp(
-                torch.arange(0, self.embed_dim, 2, device=x.device)
-                * (-math.log(10000.0) / self.embed_dim)
-            )
+            torch.exp(torch.arange(0, self.embed_dim, 2, device=x.device) * (-math.log(10000.0) / self.embed_dim))
             .unsqueeze(0)
             .unsqueeze(0)
             .repeat(x.shape[0], x.shape[1], 1)
@@ -119,10 +116,8 @@ class CausalSelfAttention(Module):
         """
         super(CausalSelfAttention, self).__init__()
 
-        assert embed_dim % num_heads == 0, (
-            "num_heads: {} does not divide embed_dim: {} exactly".format(
-                num_heads, embed_dim
-            )
+        assert embed_dim % num_heads == 0, "num_heads: {} does not divide embed_dim: {} exactly".format(
+            num_heads, embed_dim
         )
 
         self.embed_dim = embed_dim
@@ -143,9 +138,7 @@ class CausalSelfAttention(Module):
         self.nets["output"] = nn.Linear(self.embed_dim, self.embed_dim)
 
         # causal mask (ensures attention is only over previous inputs) - just a lower triangular matrix of 1s
-        mask = torch.tril(torch.ones(context_length, context_length)).view(
-            1, 1, context_length, context_length
-        )
+        mask = torch.tril(torch.ones(context_length, context_length)).view(1, 1, context_length, context_length)
         self.register_buffer("mask", mask)
 
     def forward(self, x):

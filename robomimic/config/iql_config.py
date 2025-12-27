@@ -18,16 +18,12 @@ class IQLConfig(BaseConfig):
         super(IQLConfig, self).algo_config()
 
         # optimization parameters
-        self.algo.optim_params.critic.learning_rate.initial = (
-            1e-4  # critic learning rate
-        )
+        self.algo.optim_params.critic.learning_rate.initial = 1e-4  # critic learning rate
         self.algo.optim_params.critic.learning_rate.decay_factor = (
             0.0  # factor to decay LR by (if epoch schedule non-empty)
         )
         self.algo.optim_params.critic.learning_rate.epoch_schedule = []  # epochs where LR decay occurs
-        self.algo.optim_params.critic.regularization.L2 = (
-            0.00  # L2 regularization strength
-        )
+        self.algo.optim_params.critic.regularization.L2 = 0.00  # L2 regularization strength
 
         self.algo.optim_params.vf.learning_rate.initial = 1e-4  # vf learning rate
         self.algo.optim_params.vf.learning_rate.decay_factor = (
@@ -41,9 +37,7 @@ class IQLConfig(BaseConfig):
             0.0  # factor to decay LR by (if epoch schedule non-empty)
         )
         self.algo.optim_params.actor.learning_rate.epoch_schedule = []  # epochs where LR decay occurs
-        self.algo.optim_params.actor.regularization.L2 = (
-            0.00  # L2 regularization strength
-        )
+        self.algo.optim_params.actor.regularization.L2 = 0.00  # L2 regularization strength
 
         # target network related parameters
         self.algo.discount = 0.99  # discount factor to use
@@ -51,29 +45,17 @@ class IQLConfig(BaseConfig):
 
         # ================== Actor Network Config ===================
         # Actor network settings
-        self.algo.actor.net.type = (
-            "gaussian"  # Options are currently ["gaussian", "gmm"]
-        )
+        self.algo.actor.net.type = "gaussian"  # Options are currently ["gaussian", "gmm"]
 
         # Actor network settings - shared
-        self.algo.actor.net.common.std_activation = (
-            "softplus"  # Activation to use for std output from policy net
-        )
-        self.algo.actor.net.common.low_noise_eval = (
-            True  # Whether to use deterministic action sampling at eval stage
-        )
-        self.algo.actor.net.common.use_tanh = (
-            False  # Whether to use tanh at output of actor network
-        )
+        self.algo.actor.net.common.std_activation = "softplus"  # Activation to use for std output from policy net
+        self.algo.actor.net.common.low_noise_eval = True  # Whether to use deterministic action sampling at eval stage
+        self.algo.actor.net.common.use_tanh = False  # Whether to use tanh at output of actor network
 
         # Actor network settings - gaussian
         self.algo.actor.net.gaussian.init_last_fc_weight = 0.001  # If set, will override the initialization of the final fc layer to be uniformly sampled limited by this value
-        self.algo.actor.net.gaussian.init_std = (
-            0.3  # Relative scaling factor for std from policy net
-        )
-        self.algo.actor.net.gaussian.fixed_std = (
-            False  # Whether to learn std dev or not
-        )
+        self.algo.actor.net.gaussian.init_std = 0.3  # Relative scaling factor for std from policy net
+        self.algo.actor.net.gaussian.fixed_std = False  # Whether to learn std dev or not
 
         self.algo.actor.net.gmm.num_modes = 5  # number of GMM modes
         self.algo.actor.net.gmm.min_std = 0.0001  # minimum std output from network

@@ -8,16 +8,17 @@ datasets and dataset class in other applications.
 """
 
 import numpy as np
+import torch
+from torch.utils.data import DataLoader
+
 import robomimic
 import robomimic.utils.file_utils as FileUtils
 import robomimic.utils.obs_utils as ObsUtils
 import robomimic.utils.test_utils as TestUtils
 import robomimic.utils.torch_utils as TorchUtils
-import torch
 from robomimic.algo import algo_factory
 from robomimic.config import config_factory
 from robomimic.utils.dataset import SequenceDataset
-from torch.utils.data import DataLoader
 
 
 def get_data_loader(dataset_path):
@@ -114,11 +115,7 @@ def print_batch_info(batch):
         if k in ["obs", "next_obs"]:
             print("key {}".format(k))
             for obs_key in batch[k]:
-                print(
-                    "    obs key {} with shape {}".format(
-                        obs_key, batch[k][obs_key].shape
-                    )
-                )
+                print("    obs key {} with shape {}".format(obs_key, batch[k][obs_key].shape))
         else:
             print("key {} with shape {}".format(k, batch[k].shape))
     print("")
@@ -163,9 +160,7 @@ def run_train_loop(model, data_loader):
 
             # process batch for training
             input_batch = model.process_batch_for_training(batch)
-            input_batch = model.postprocess_batch_for_training(
-                input_batch, obs_normalization_stats=None
-            )
+            input_batch = model.postprocess_batch_for_training(input_batch, obs_normalization_stats=None)
 
             # forward and backward pass
             info = model.train_on_batch(batch=input_batch, epoch=epoch, validate=False)

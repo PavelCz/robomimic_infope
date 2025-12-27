@@ -78,9 +78,7 @@ def register_all_links():
             horizon=horizon,
             link="v1.5/{}/ph/low_dim_v15.hdf5".format(task),
         )
-        register_dataset_link(
-            task=task, dataset_type="ph", hdf5_type="image", horizon=horizon, link=None
-        )
+        register_dataset_link(task=task, dataset_type="ph", hdf5_type="image", horizon=horizon, link=None)
 
     ph_real_tasks = ["lift_real", "can_real", "tool_hang_real"]
     ph_real_horizons = [1000, 1000, 1000]
@@ -114,9 +112,7 @@ def register_all_links():
             horizon=horizon,
             link="v1.5/{}/mh/low_dim_v15.hdf5".format(task),
         )
-        register_dataset_link(
-            task=task, dataset_type="mh", hdf5_type="image", horizon=horizon, link=None
-        )
+        register_dataset_link(task=task, dataset_type="mh", hdf5_type="image", horizon=horizon, link=None)
 
     # all machine generated datasets
     for task, horizon in zip(["lift", "can"], [400, 400]):
@@ -171,9 +167,7 @@ def register_all_links():
         horizon=400,
         link="v1.5/can/paired/low_dim_v15.hdf5",
     )
-    register_dataset_link(
-        task="can", dataset_type="paired", hdf5_type="image", horizon=400, link=None
-    )
+    register_dataset_link(task="can", dataset_type="paired", hdf5_type="image", horizon=400, link=None)
 
 
 def register_momart_dataset_link(task, dataset_type, link, dataset_size):

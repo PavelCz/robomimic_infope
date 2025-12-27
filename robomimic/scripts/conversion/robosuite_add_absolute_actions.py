@@ -21,13 +21,14 @@ import pickle
 
 import h5py
 import numpy as np
+import robosuite
+from scipy.spatial.transform import Rotation
+from tqdm import tqdm
+
 import robomimic.utils.env_utils as EnvUtils
 import robomimic.utils.file_utils as FileUtils
 import robomimic.utils.obs_utils as ObsUtils
-import robosuite
 from robomimic.config import config_factory
-from scipy.spatial.transform import Rotation
-from tqdm import tqdm
 
 """
 copied/adapted from https://github.com/columbia-ai-robotics/diffusion_policy/blob/main/diffusion_policy/common/robomimic_util.py
@@ -54,9 +55,7 @@ class RobomimicAbsoluteActionConverter:
         if robosuite.__version__ < "1.5":
             abs_env_meta["env_kwargs"]["controller_configs"]["control_delta"] = False
         else:
-            abs_env_meta["env_kwargs"]["controller_configs"]["body_parts"]["right"][
-                "control_delta"
-            ] = False
+            abs_env_meta["env_kwargs"]["controller_configs"]["body_parts"]["right"]["control_delta"] = False
 
         env = EnvUtils.create_env_from_metadata(
             env_meta=env_meta,
@@ -76,12 +75,8 @@ class RobomimicAbsoluteActionConverter:
             assert not abs_env.env.robots[0].controller.use_delta
             self.controller_config = abs_env._init_kwargs["controller_configs"]
         else:
-            assert not abs_env._init_kwargs["controller_configs"]["body_parts"][
-                "right"
-            ]["control_delta"]
-            self.controller_config = abs_env._init_kwargs["controller_configs"][
-                "body_parts"
-            ]["right"]
+            assert not abs_env._init_kwargs["controller_configs"]["body_parts"]["right"]["control_delta"]
+            self.controller_config = abs_env._init_kwargs["controller_configs"]["body_parts"]["right"]
 
         self.env = env
         self.abs_env = abs_env
@@ -90,9 +85,7 @@ class RobomimicAbsoluteActionConverter:
     def get_demo_keys(self):
         return list(self.file["data"].keys())
 
-    def convert_actions(
-        self, states: np.ndarray, actions: np.ndarray, initial_state: dict
-    ) -> np.ndarray:
+    def convert_actions(self, states: np.ndarray, actions: np.ndarray, initial_state: dict) -> np.ndarray:
         """
         Given state and delta action sequence
         generate equivalent goal position and orientation for each step
@@ -107,12 +100,8 @@ class RobomimicAbsoluteActionConverter:
         stacked_actions = actions.reshape(*actions.shape[:-1], -1, d_a)
 
         # generate abs actions
-        action_goal_pos = np.zeros(
-            stacked_actions.shape[:-1] + (3,), dtype=stacked_actions.dtype
-        )
-        action_goal_ori = np.zeros(
-            stacked_actions.shape[:-1] + (3,), dtype=stacked_actions.dtype
-        )
+        action_goal_pos = np.zeros(stacked_actions.shape[:-1] + (3,), dtype=stacked_actions.dtype)
+        action_goal_ori = np.zeros(stacked_actions.shape[:-1] + (3,), dtype=stacked_actions.dtype)
         action_remainder = stacked_actions[..., 6:]
         for i in range(len(states)):
             if i == 0:
@@ -128,9 +117,7 @@ class RobomimicAbsoluteActionConverter:
                     # read pos and ori from robots
                     controller = robot.controller
                     action_goal_pos[i, idx] = controller.goal_pos
-                    action_goal_ori[i, idx] = Rotation.from_matrix(
-                        controller.goal_ori
-                    ).as_rotvec()
+                    action_goal_ori[i, idx] = Rotation.from_matrix(controller.goal_ori).as_rotvec()
 
                 else:
                     # run controller goal generator
@@ -139,13 +126,9 @@ class RobomimicAbsoluteActionConverter:
                     # read pos and ori from robots
                     controller = robot.part_controllers["right"]
                     action_goal_pos[i, idx] = controller.goal_pos
-                    action_goal_ori[i, idx] = Rotation.from_matrix(
-                        controller.goal_ori
-                    ).as_rotvec()
+                    action_goal_ori[i, idx] = Rotation.from_matrix(controller.goal_ori).as_rotvec()
 
-        stacked_abs_actions = np.concatenate(
-            [action_goal_pos, action_goal_ori, action_remainder], axis=-1
-        )
+        stacked_abs_actions = np.concatenate([action_goal_pos, action_goal_ori, action_remainder], axis=-1)
         abs_actions = stacked_abs_actions.reshape(actions.shape)
         return abs_actions
 

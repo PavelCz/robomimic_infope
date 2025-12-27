@@ -43,11 +43,7 @@ class TanhWrappedDistribution(D.Distribution):
         lp = self.base_dist.log_prob(pre_tanh_value)
         tanh_lp = torch.log(1 - value * value + self.tanh_epsilon)
         # In case the base dist already sums up the log probs, make sure we do the same
-        return (
-            lp - tanh_lp
-            if len(lp.shape) == len(tanh_lp.shape)
-            else lp - tanh_lp.sum(-1)
-        )
+        return lp - tanh_lp if len(lp.shape) == len(tanh_lp.shape) else lp - tanh_lp.sum(-1)
 
     def sample(self, sample_shape=torch.Size(), return_pretanh_value=False):
         """

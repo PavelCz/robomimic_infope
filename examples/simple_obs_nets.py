@@ -6,9 +6,10 @@ functionality.
 
 from collections import OrderedDict
 
+import torch
+
 import robomimic.utils.obs_utils as ObsUtils
 import robomimic.utils.tensor_utils as TensorUtils
-import torch
 from robomimic.models.base_nets import MLP
 from robomimic.models.obs_core import CropRandomizer
 from robomimic.models.obs_nets import ObservationDecoder, ObservationEncoder
@@ -50,9 +51,7 @@ def simple_obs_example():
     camera2_shape = [3, 160, 240]
 
     # We could also attach an observation randomizer to perturb the input observation key before sending to the network
-    image_randomizer = CropRandomizer(
-        input_shape=camera2_shape, crop_height=140, crop_width=220
-    )
+    image_randomizer = CropRandomizer(input_shape=camera2_shape, crop_height=140, crop_width=220)
 
     # the cropper will alter the input shape
     net_kwargs["input_shape"] = image_randomizer.output_shape_in(camera2_shape)
@@ -88,9 +87,7 @@ def simple_obs_example():
         "low_dim": ["proprio"],
         "rgb": ["camera1", "camera2", "camera3"],
     }
-    ObsUtils.initialize_obs_modality_mapping_from_dict(
-        modality_mapping=obs_modality_mapping
-    )
+    ObsUtils.initialize_obs_modality_mapping_from_dict(modality_mapping=obs_modality_mapping)
 
     # Finally, construct the observation encoder
     obs_encoder.make()

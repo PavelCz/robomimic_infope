@@ -14,9 +14,7 @@ from copy import deepcopy
 class Config(dict):
     def __init__(__self, *args, **kwargs):
         object.__setattr__(__self, "__key_locked", False)  # disallow adding new keys
-        object.__setattr__(
-            __self, "__all_locked", False
-        )  # disallow both key and value update
+        object.__setattr__(__self, "__all_locked", False)  # disallow both key and value update
         object.__setattr__(__self, "__do_not_lock_keys", False)  # cannot be key-locked
         object.__setattr__(__self, "__parent", kwargs.pop("__parent", None))
         object.__setattr__(__self, "__key", kwargs.pop("__key", None))
@@ -190,20 +188,12 @@ class Config(dict):
 
     def __setattr__(self, name, value):
         if self.is_locked:
-            raise RuntimeError(
-                "This config has been locked - cannot set attribute '{}' to {}".format(
-                    name, value
-                )
-            )
+            raise RuntimeError("This config has been locked - cannot set attribute '{}' to {}".format(name, value))
 
         if hasattr(Config, name):
-            raise AttributeError(
-                "'Dict' object attribute '{0}' is read-only".format(name)
-            )
+            raise AttributeError("'Dict' object attribute '{0}' is read-only".format(name))
         elif not hasattr(self, name) and self.is_key_locked:
-            raise RuntimeError(
-                "This config is key-locked - cannot add key '{}'".format(name)
-            )
+            raise RuntimeError("This config is key-locked - cannot add key '{}'".format(name))
         else:
             self[name] = value
 
@@ -241,14 +231,8 @@ class Config(dict):
 
     def __getitem__(self, name):
         if name not in self:
-            if object.__getattribute__(self, "__all_locked") or object.__getattribute__(
-                self, "__key_locked"
-            ):
-                raise RuntimeError(
-                    "This config has been locked and '{}' is not in this config".format(
-                        name
-                    )
-                )
+            if object.__getattribute__(self, "__all_locked") or object.__getattribute__(self, "__key_locked"):
+                raise RuntimeError("This config has been locked and '{}' is not in this config".format(name))
             return Config(__parent=self, __key=name)
         return super(Config, self).__getitem__(name)
 
@@ -261,10 +245,7 @@ class Config(dict):
             if isinstance(value, type(self)):
                 base[key] = value.to_dict()
             elif isinstance(value, (list, tuple)):
-                base[key] = type(value)(
-                    item.to_dict() if isinstance(item, type(self)) else item
-                    for item in value
-                )
+                base[key] = type(value)(item.to_dict() if isinstance(item, type(self)) else item for item in value)
             else:
                 base[key] = value
         return base
@@ -297,9 +278,7 @@ class Config(dict):
         for k, v in other.items():
             if self.is_key_locked and k not in self:
                 raise RuntimeError(
-                    "Cannot update - this config has been key-locked and key '{}' does not exist".format(
-                        k
-                    )
+                    "Cannot update - this config has been key-locked and key '{}' does not exist".format(k)
                 )
             if (not isinstance(self[k], dict)) or (not isinstance(v, dict)):
                 self[k] = v

@@ -46,9 +46,7 @@ def make_generator(config_file, script_file):
     """
     Implement this function to setup your own hyperparameter scan!
     """
-    generator = HyperparamUtils.ConfigGenerator(
-        base_config_file=config_file, script_file=script_file
-    )
+    generator = HyperparamUtils.ConfigGenerator(base_config_file=config_file, script_file=script_file)
 
     # use RNN with horizon 10
     generator.add_param(

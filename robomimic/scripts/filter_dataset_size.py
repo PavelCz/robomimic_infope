@@ -9,22 +9,16 @@ import argparse
 
 import h5py
 import numpy as np
+
 from robomimic.utils.file_utils import create_hdf5_filter_key
 
 
-def filter_dataset_size(
-    hdf5_path, num_demos, input_filter_key=None, output_filter_key=None
-):
+def filter_dataset_size(hdf5_path, num_demos, input_filter_key=None, output_filter_key=None):
     # retrieve number of demos
     f = h5py.File(hdf5_path, "r")
     if input_filter_key is not None:
         print("using filter key: {}".format(input_filter_key))
-        demos = sorted(
-            [
-                elem.decode("utf-8")
-                for elem in np.array(f["mask/{}".format(input_filter_key)])
-            ]
-        )
+        demos = sorted([elem.decode("utf-8") for elem in np.array(f["mask/{}".format(input_filter_key)])])
     else:
         demos = sorted(list(f["data"].keys()))
     f.close()
@@ -47,9 +41,7 @@ def filter_dataset_size(
     if input_filter_key is not None:
         name = "{}_{}".format(input_filter_key, name)
 
-    subset_lengths = create_hdf5_filter_key(
-        hdf5_path=hdf5_path, demo_keys=subset_keys, key_name=name
-    )
+    subset_lengths = create_hdf5_filter_key(hdf5_path=hdf5_path, demo_keys=subset_keys, key_name=name)
 
     print("Total number of subset samples: {}".format(np.sum(subset_lengths)))
     print("Average number of subset samples {}".format(np.mean(subset_lengths)))

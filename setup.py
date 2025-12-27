@@ -13,9 +13,7 @@ long_description = "".join(lines)
 
 setup(
     name="robomimic",
-    packages=[
-        package for package in find_packages() if package.startswith("robomimic")
-    ],
+    packages=[package for package in find_packages() if package.startswith("robomimic")],
     install_requires=[
         "numpy>=1.13.3",
         "h5py",

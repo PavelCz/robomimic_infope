@@ -180,11 +180,7 @@ class Unsqueeze(Module):
 
     def output_shape(self, input_shape=None):
         assert input_shape is not None
-        return (
-            input_shape + [1]
-            if self.dim == -1
-            else input_shape[: self.dim + 1] + [1] + input_shape[self.dim + 1 :]
-        )
+        return input_shape + [1] if self.dim == -1 else input_shape[: self.dim + 1] + [1] + input_shape[self.dim + 1 :]
 
     def forward(self, x):
         return x.unsqueeze(dim=self.dim)
@@ -201,11 +197,7 @@ class Squeeze(Module):
 
     def output_shape(self, input_shape=None):
         assert input_shape is not None
-        return (
-            input_shape[: self.dim] + input_shape[self.dim + 1 :]
-            if input_shape[self.dim] == 1
-            else input_shape
-        )
+        return input_shape[: self.dim] + input_shape[self.dim + 1 :] if input_shape[self.dim] == 1 else input_shape
 
     def forward(self, x):
         return x.squeeze(dim=self.dim)
@@ -350,9 +342,7 @@ class RNN_Base(Module):
         super(RNN_Base, self).__init__()
         self.per_step_net = per_step_net
         if per_step_net is not None:
-            assert isinstance(per_step_net, Module), (
-                "RNN_Base: per_step_net is not instance of Module"
-            )
+            assert isinstance(per_step_net, Module), "RNN_Base: per_step_net is not instance of Module"
 
         assert rnn_type in ["LSTM", "GRU"]
         rnn_cls = nn.LSTM if rnn_type == "LSTM" else nn.GRU
@@ -370,9 +360,7 @@ class RNN_Base(Module):
         self._hidden_dim = rnn_hidden_dim
         self._num_layers = rnn_num_layers
         self._rnn_type = rnn_type
-        self._num_directions = (
-            int(rnn_is_bidirectional) + 1
-        )  # 2 if bidirectional, 1 otherwise
+        self._num_directions = int(rnn_is_bidirectional) + 1  # 2 if bidirectional, 1 otherwise
 
     @property
     def rnn_type(self):
@@ -390,13 +378,9 @@ class RNN_Base(Module):
             hidden_state (torch.Tensor or tuple): returns hidden state tensor or tuple of hidden state tensors
                 depending on the RNN type
         """
-        h_0 = torch.zeros(
-            self._num_layers * self._num_directions, batch_size, self._hidden_dim
-        ).to(device)
+        h_0 = torch.zeros(self._num_layers * self._num_directions, batch_size, self._hidden_dim).to(device)
         if self._rnn_type == "LSTM":
-            c_0 = torch.zeros(
-                self._num_layers * self._num_directions, batch_size, self._hidden_dim
-            ).to(device)
+            c_0 = torch.zeros(self._num_layers * self._num_directions, batch_size, self._hidden_dim).to(device)
             return h_0, c_0
         else:
             return h_0
@@ -556,18 +540,12 @@ class ResNet18Conv(ConvBase):
                 (a convolution where input channels are modified to encode spatial pixel location)
         """
         super(ResNet18Conv, self).__init__()
-        net = vision_models.resnet18(
-            weights=(vision_models.ResNet18_Weights.DEFAULT if pretrained else None)
-        )
+        net = vision_models.resnet18(weights=(vision_models.ResNet18_Weights.DEFAULT if pretrained else None))
 
         if input_coord_conv:
-            net.conv1 = CoordConv2d(
-                input_channel, 64, kernel_size=7, stride=2, padding=3, bias=False
-            )
+            net.conv1 = CoordConv2d(input_channel, 64, kernel_size=7, stride=2, padding=3, bias=False)
         elif input_channel != 3:
-            net.conv1 = nn.Conv2d(
-                input_channel, 64, kernel_size=7, stride=2, padding=3, bias=False
-            )
+            net.conv1 = nn.Conv2d(input_channel, 64, kernel_size=7, stride=2, padding=3, bias=False)
 
         # cut the last fc layer
         self._input_coord_conv = input_coord_conv
@@ -594,9 +572,7 @@ class ResNet18Conv(ConvBase):
     def __repr__(self):
         """Pretty print network."""
         header = "{}".format(str(self.__class__.__name__))
-        return header + "(input_channel={}, input_coord_conv={})".format(
-            self._input_channel, self._input_coord_conv
-        )
+        return header + "(input_channel={}, input_coord_conv={})".format(self._input_channel, self._input_coord_conv)
 
 
 class ResNet50Conv(ConvBase):
@@ -624,14 +600,10 @@ class ResNet50Conv(ConvBase):
 
         if input_coord_conv:
             # copied from ResNet18Conv. TODO: check if sizes need to be changed
-            net.conv1 = CoordConv2d(
-                input_channel, 64, kernel_size=7, stride=2, padding=3, bias=False
-            )
+            net.conv1 = CoordConv2d(input_channel, 64, kernel_size=7, stride=2, padding=3, bias=False)
         elif input_channel != 3:
             # copied from ResNet18Conv. TODO: check if sizes need to be changed
-            net.conv1 = nn.Conv2d(
-                input_channel, 64, kernel_size=7, stride=2, padding=3, bias=False
-            )
+            net.conv1 = nn.Conv2d(input_channel, 64, kernel_size=7, stride=2, padding=3, bias=False)
 
         # cut the last fc layer
         self._input_coord_conv = input_coord_conv
@@ -658,9 +630,7 @@ class ResNet50Conv(ConvBase):
     def __repr__(self):
         """Pretty print network."""
         header = "{}".format(str(self.__class__.__name__))
-        return header + "(input_channel={}, input_coord_conv={})".format(
-            self._input_channel, self._input_coord_conv
-        )
+        return header + "(input_channel={}, input_coord_conv={})".format(self._input_channel, self._input_coord_conv)
 
 
 class FiLMLayer(ConvBase):
@@ -695,9 +665,7 @@ class FiLMLayer(ConvBase):
 
     def forward(self, x, lang_emb):
         B, C, H, W = x.shape
-        beta, gamma = torch.split(
-            self.lang_proj(lang_emb).reshape(B, C * 2, 1, 1), [C, C], 1
-        )
+        beta, gamma = torch.split(self.lang_proj(lang_emb).reshape(B, C * 2, 1, 1), [C, C], 1)
         # The FiLM paper suggests modulating by 1 + dGamma instead of just gamma to avoid zeroing activations
         x = (1 + gamma) * x + beta
         return self.relu(x)
@@ -733,13 +701,9 @@ class ResNet18ConvFiLM(ConvBase):
         #     lang_emb_dim = LangUtils.get_lang_emb("hi").shape[0]
 
         if input_coord_conv:
-            net.conv1 = CoordConv2d(
-                input_channel, 64, kernel_size=7, stride=2, padding=3, bias=False
-            )
+            net.conv1 = CoordConv2d(input_channel, 64, kernel_size=7, stride=2, padding=3, bias=False)
         elif input_channel != 3:
-            net.conv1 = nn.Conv2d(
-                input_channel, 64, kernel_size=7, stride=2, padding=3, bias=False
-            )
+            net.conv1 = nn.Conv2d(input_channel, 64, kernel_size=7, stride=2, padding=3, bias=False)
 
         # cut the last fc layer
         self._input_coord_conv = input_coord_conv
@@ -761,9 +725,7 @@ class ResNet18ConvFiLM(ConvBase):
         self._conv_blocks = nn.ModuleList(conv_blocks)
 
         film_layers = []
-        current_channels = self._base_block(torch.rand((1, input_channel, 3, 3))).shape[
-            1
-        ]
+        current_channels = self._base_block(torch.rand((1, input_channel, 3, 3))).shape[1]
         for conv in conv_blocks:
             current_channels = conv(torch.rand((1, current_channels, 3, 3))).shape[1]
             film_layers.append(FiLMLayer(lang_emb_dim, current_channels))
@@ -799,9 +761,7 @@ class ResNet18ConvFiLM(ConvBase):
     def __repr__(self):
         """Pretty print network."""
         header = "{}".format(str(self.__class__.__name__))
-        return header + "(input_channel={}, input_coord_conv={})".format(
-            self._input_channel, self._input_coord_conv
-        )
+        return header + "(input_channel={}, input_coord_conv={})".format(self._input_channel, self._input_coord_conv)
 
 
 class R3MConv(ConvBase):
@@ -861,9 +821,7 @@ class R3MConv(ConvBase):
         if freeze:
             self.nets.freeze()
 
-        self.weight_sum = np.sum(
-            [param.cpu().data.numpy().sum() for param in self.nets.parameters()]
-        )
+        self.weight_sum = np.sum([param.cpu().data.numpy().sum() for param in self.nets.parameters()])
         if freeze:
             for param in self.nets.parameters():
                 param.requires_grad = False
@@ -892,14 +850,11 @@ class R3MConv(ConvBase):
     def __repr__(self):
         """Pretty print network."""
         header = "{}".format(str(self.__class__.__name__))
-        return (
-            header
-            + "(input_channel={}, input_coord_conv={}, pretrained={}, freeze={})".format(
-                self._input_channel,
-                self._input_coord_conv,
-                self._pretrained,
-                self._freeze,
-            )
+        return header + "(input_channel={}, input_coord_conv={}, pretrained={}, freeze={})".format(
+            self._input_channel,
+            self._input_coord_conv,
+            self._pretrained,
+            self._freeze,
         )
 
 
@@ -928,9 +883,7 @@ class MVPConv(ConvBase):
         try:
             import mvp
         except ImportError:
-            print(
-                "WARNING: could not load mvp library! Please follow https://github.com/ir413/mvp to install MVP."
-            )
+            print("WARNING: could not load mvp library! Please follow https://github.com/ir413/mvp to install MVP.")
 
         self.nets = mvp.load(mvp_model_class)
         if freeze:
@@ -992,14 +945,11 @@ class MVPConv(ConvBase):
     def __repr__(self):
         """Pretty print network."""
         header = "{}".format(str(self.__class__.__name__))
-        return (
-            header
-            + "(input_channel={}, input_coord_conv={}, pretrained={}, freeze={})".format(
-                self._input_channel,
-                self._input_coord_conv,
-                self._pretrained,
-                self._freeze,
-            )
+        return header + "(input_channel={}, input_coord_conv={}, pretrained={}, freeze={})".format(
+            self._input_channel,
+            self._input_coord_conv,
+            self._pretrained,
+            self._freeze,
         )
 
 
@@ -1045,11 +995,7 @@ class CoordConv2d(nn.Conv2d, Module):
             in_channels += 2  # two extra channel for positional encoding
             self._position_enc = None  # position encoding
         else:
-            raise Exception(
-                "CoordConv2d: coord encoding {} not implemented".format(
-                    self.coord_encoding
-                )
-            )
+            raise Exception("CoordConv2d: coord encoding {} not implemented".format(self.coord_encoding))
         nn.Conv2d.__init__(
             self,
             in_channels=in_channels,
@@ -1198,16 +1144,7 @@ class Conv1dBase(Module):
             net = getattr(self.nets, f"conv{i}")
             channels = net.out_channels
             length = (
-                int(
-                    (
-                        length
-                        + 2 * net.padding[0]
-                        - net.dilation[0] * (net.kernel_size[0] - 1)
-                        - 1
-                    )
-                    / net.stride[0]
-                )
-                + 1
+                int((length + 2 * net.padding[0] - net.dilation[0] * (net.kernel_size[0] - 1) - 1) / net.stride[0]) + 1
             )
         return [channels, length]
 
@@ -1273,20 +1210,14 @@ class SpatialSoftmax(ConvBase):
 
         if self.learnable_temperature:
             # temperature will be learned
-            temperature = torch.nn.Parameter(
-                torch.ones(1) * temperature, requires_grad=True
-            )
+            temperature = torch.nn.Parameter(torch.ones(1) * temperature, requires_grad=True)
             self.register_parameter("temperature", temperature)
         else:
             # temperature held constant after initialization
-            temperature = torch.nn.Parameter(
-                torch.ones(1) * temperature, requires_grad=False
-            )
+            temperature = torch.nn.Parameter(torch.ones(1) * temperature, requires_grad=False)
             self.register_buffer("temperature", temperature)
 
-        pos_x, pos_y = np.meshgrid(
-            np.linspace(-1.0, 1.0, self._in_w), np.linspace(-1.0, 1.0, self._in_h)
-        )
+        pos_x, pos_y = np.meshgrid(np.linspace(-1.0, 1.0, self._in_w), np.linspace(-1.0, 1.0, self._in_h))
         pos_x = torch.from_numpy(pos_x.reshape(1, self._in_h * self._in_w)).float()
         pos_y = torch.from_numpy(pos_y.reshape(1, self._in_h * self._in_w)).float()
         self.register_buffer("pos_x", pos_x)
@@ -1354,22 +1285,14 @@ class SpatialSoftmax(ConvBase):
 
         if self.output_variance:
             # treat attention as a distribution, and compute second-order statistics to return
-            expected_xx = torch.sum(
-                self.pos_x * self.pos_x * attention, dim=1, keepdim=True
-            )
-            expected_yy = torch.sum(
-                self.pos_y * self.pos_y * attention, dim=1, keepdim=True
-            )
-            expected_xy = torch.sum(
-                self.pos_x * self.pos_y * attention, dim=1, keepdim=True
-            )
+            expected_xx = torch.sum(self.pos_x * self.pos_x * attention, dim=1, keepdim=True)
+            expected_yy = torch.sum(self.pos_y * self.pos_y * attention, dim=1, keepdim=True)
+            expected_xy = torch.sum(self.pos_x * self.pos_y * attention, dim=1, keepdim=True)
             var_x = expected_xx - expected_x * expected_x
             var_y = expected_yy - expected_y * expected_y
             var_xy = expected_xy - expected_x * expected_y
             # stack to [B * K, 4] and then reshape to [B, K, 2, 2] where last 2 dims are covariance matrix
-            feature_covar = torch.cat([var_x, var_xy, var_xy, var_y], 1).reshape(
-                -1, self._num_kp, 2, 2
-            )
+            feature_covar = torch.cat([var_x, var_xy, var_xy, var_y], 1).reshape(-1, self._num_kp, 2, 2)
             feature_keypoints = (feature_keypoints, feature_covar)
 
         if isinstance(feature_keypoints, tuple):

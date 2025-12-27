@@ -96,9 +96,7 @@ class Algo(object):
     utils/train_utils.py.
     """
 
-    def __init__(
-        self, algo_config, obs_config, global_config, obs_key_shapes, ac_dim, device
-    ):
+    def __init__(self, algo_config, obs_config, global_config, obs_key_shapes, ac_dim, device):
         """
         Args:
             algo_config (Config object): instance of Config corresponding to the algo section
@@ -150,21 +148,15 @@ class Algo(object):
         # across all modalitie specified in the config. If so, we store its corresponding shape internally
         for k in obs_key_shapes:
             if "obs" in self.obs_config.modalities and k in [
-                obs_key
-                for modality in self.obs_config.modalities.obs.values()
-                for obs_key in modality
+                obs_key for modality in self.obs_config.modalities.obs.values() for obs_key in modality
             ]:
                 self.obs_shapes[k] = obs_key_shapes[k]
             if "goal" in self.obs_config.modalities and k in [
-                obs_key
-                for modality in self.obs_config.modalities.goal.values()
-                for obs_key in modality
+                obs_key for modality in self.obs_config.modalities.goal.values() for obs_key in modality
             ]:
                 self.goal_shapes[k] = obs_key_shapes[k]
             if "subgoal" in self.obs_config.modalities and k in [
-                obs_key
-                for modality in self.obs_config.modalities.subgoal.values()
-                for obs_key in modality
+                obs_key for modality in self.obs_config.modalities.subgoal.values() for obs_key in modality
             ]:
                 self.subgoal_shapes[k] = obs_key_shapes[k]
 
@@ -188,9 +180,9 @@ class Algo(object):
             # only make optimizers for networks that have been created - @optim_params may have more
             # settings for unused networks
             if k in self.nets:
-                self.step_lr_schedulers_every_batch[k] = self.optim_params[
-                    k
-                ].learning_rate.get("step_every_batch", False)
+                self.step_lr_schedulers_every_batch[k] = self.optim_params[k].learning_rate.get(
+                    "step_every_batch", False
+                )
                 if isinstance(self.nets[k], nn.ModuleList):
                     self.optimizers[k] = [
                         TorchUtils.optimizer_from_optim_params(
@@ -253,9 +245,7 @@ class Algo(object):
 
         # ensure obs_normalization_stats are torch Tensors on proper device
         obs_normalization_stats = TensorUtils.to_float(
-            TensorUtils.to_device(
-                TensorUtils.to_tensor(obs_normalization_stats), self.device
-            )
+            TensorUtils.to_device(TensorUtils.to_tensor(obs_normalization_stats), self.device)
         )
 
         # we will search the nested batch dictionary for the following special batch dict keys
@@ -272,9 +262,7 @@ class Algo(object):
                     if d[k] is not None:
                         d[k] = ObsUtils.process_obs_dict(d[k])
                         if obs_normalization_stats is not None:
-                            d[k] = ObsUtils.normalize_dict(
-                                d[k], normalization_stats=obs_normalization_stats
-                            )
+                            d[k] = ObsUtils.normalize_dict(d[k], normalization_stats=obs_normalization_stats)
                 elif isinstance(d[k], dict):
                     # search down into dictionary
                     recurse_helper(d[k])
@@ -386,11 +374,7 @@ class Algo(object):
         """
         Pretty print algorithm and network description.
         """
-        return (
-            "{} (\n".format(self.__class__.__name__)
-            + textwrap.indent(self.nets.__repr__(), "  ")
-            + "\n)"
-        )
+        return "{} (\n".format(self.__class__.__name__) + textwrap.indent(self.nets.__repr__(), "  ") + "\n)"
 
     def reset(self):
         """
@@ -532,9 +516,7 @@ class RolloutPolicy(object):
     Wraps @Algo object to make it easy to run policies in a rollout loop.
     """
 
-    def __init__(
-        self, policy, obs_normalization_stats=None, action_normalization_stats=None
-    ):
+    def __init__(self, policy, obs_normalization_stats=None, action_normalization_stats=None):
         """
         Args:
             policy (Algo instance): @Algo object to wrap to prepare for rollouts
@@ -583,15 +565,13 @@ class RolloutPolicy(object):
             )
             # limit normalization to obs keys being used, in case environment includes extra keys
             ob = {k: ob[k] for k in self.policy.global_config.all_obs_keys}
-            ob = ObsUtils.normalize_dict(
-                ob, normalization_stats=obs_normalization_stats
-            )
+            ob = ObsUtils.normalize_dict(ob, normalization_stats=obs_normalization_stats)
         # postprocess visual observations
         if postprocess_visual_obs:
             for k in ob:
-                if ObsUtils.key_is_obs_modality(
-                    key=k, obs_modality="rgb"
-                ) or ObsUtils.key_is_obs_modality(key=k, obs_modality="depth"):
+                if ObsUtils.key_is_obs_modality(key=k, obs_modality="rgb") or ObsUtils.key_is_obs_modality(
+                    key=k, obs_modality="depth"
+                ):
                     ob[k] = ObsUtils.process_obs(obs=ob[k], obs_key=k)
         return ob
 
@@ -619,37 +599,20 @@ class RolloutPolicy(object):
         if self.action_normalization_stats is not None:
             action_keys = self.policy.global_config.train.action_keys
             action_shapes = {
-                k: self.action_normalization_stats[k]["offset"].shape[1:]
-                for k in self.action_normalization_stats
+                k: self.action_normalization_stats[k]["offset"].shape[1:] for k in self.action_normalization_stats
             }
-            ac_dict = PyUtils.vector_to_action_dict(
-                ac, action_shapes=action_shapes, action_keys=action_keys
-            )
-            ac_dict = ObsUtils.unnormalize_dict(
-                ac_dict, normalization_stats=self.action_normalization_stats
-            )
+            ac_dict = PyUtils.vector_to_action_dict(ac, action_shapes=action_shapes, action_keys=action_keys)
+            ac_dict = ObsUtils.unnormalize_dict(ac_dict, normalization_stats=self.action_normalization_stats)
             action_config = self.policy.global_config.train.action_config
             for key, value in ac_dict.items():
                 this_format = action_config[key].get("format", None)
                 if this_format == "rot_6d":
                     rot_6d = torch.from_numpy(value).unsqueeze(0)
-                    conversion_format = action_config[key].get(
-                        "convert_at_runtime", "rot_axis_angle"
-                    )
+                    conversion_format = action_config[key].get("convert_at_runtime", "rot_axis_angle")
                     if conversion_format == "rot_axis_angle":
-                        rot = (
-                            TorchUtils.rot_6d_to_axis_angle(rot_6d=rot_6d)
-                            .squeeze()
-                            .numpy()
-                        )
+                        rot = TorchUtils.rot_6d_to_axis_angle(rot_6d=rot_6d).squeeze().numpy()
                     elif conversion_format == "rot_euler":
-                        rot = (
-                            TorchUtils.rot_6d_to_euler_angles(
-                                rot_6d=rot_6d, convention="XYZ"
-                            )
-                            .squeeze()
-                            .numpy()
-                        )
+                        rot = TorchUtils.rot_6d_to_euler_angles(rot_6d=rot_6d, convention="XYZ").squeeze().numpy()
                     else:
                         raise ValueError
                     ac_dict[key] = rot

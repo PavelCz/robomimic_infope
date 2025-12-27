@@ -81,9 +81,7 @@ def get_demos_for_filter_key(hdf5_path, filter_key):
             "demo_1"].
     """
     f = h5py.File(hdf5_path, "r")
-    demo_keys = [
-        elem.decode("utf-8") for elem in np.array(f["mask/{}".format(filter_key)][:])
-    ]
+    demo_keys = [elem.decode("utf-8") for elem in np.array(f["mask/{}".format(filter_key)][:])]
     f.close()
     return demo_keys
 
@@ -120,9 +118,7 @@ def get_env_metadata_from_dataset(dataset_path, set_env_specific_obs_processors=
     return env_meta
 
 
-def get_shape_metadata_from_dataset(
-    dataset_config, action_keys, all_obs_keys=None, verbose=False
-):
+def get_shape_metadata_from_dataset(dataset_config, action_keys, all_obs_keys=None, verbose=False):
     """
     Retrieves shape metadata from dataset.
 
@@ -202,9 +198,7 @@ def load_dict_from_checkpoint(ckpt_path):
     """
     ckpt_path = os.path.expanduser(ckpt_path)
     if not torch.cuda.is_available():
-        ckpt_dict = torch.load(
-            ckpt_path, map_location=lambda storage, loc: storage, weights_only=False
-        )
+        ckpt_dict = torch.load(ckpt_path, map_location=lambda storage, loc: storage, weights_only=False)
     else:
         ckpt_dict = torch.load(ckpt_path, weights_only=False)
     return ckpt_dict
@@ -301,23 +295,16 @@ def update_config(cfg):
             }
 
             if "visual_feature_dimension" in old_encoder_cfg:
-                rgb_encoder_cfg["core_kwargs"]["feature_dimension"] = old_encoder_cfg[
-                    "visual_feature_dimension"
-                ]
+                rgb_encoder_cfg["core_kwargs"]["feature_dimension"] = old_encoder_cfg["visual_feature_dimension"]
 
             if "visual_core" in old_encoder_cfg:
-                rgb_encoder_cfg["core_kwargs"]["backbone_class"] = old_encoder_cfg[
-                    "visual_core"
-                ]
+                rgb_encoder_cfg["core_kwargs"]["backbone_class"] = old_encoder_cfg["visual_core"]
 
             for kwarg in ("pretrained", "input_coord_conv"):
-                if (
-                    "visual_core_kwargs" in old_encoder_cfg
-                    and kwarg in old_encoder_cfg["visual_core_kwargs"]
-                ):
-                    rgb_encoder_cfg["core_kwargs"]["backbone_kwargs"][kwarg] = (
-                        old_encoder_cfg["visual_core_kwargs"][kwarg]
-                    )
+                if "visual_core_kwargs" in old_encoder_cfg and kwarg in old_encoder_cfg["visual_core_kwargs"]:
+                    rgb_encoder_cfg["core_kwargs"]["backbone_kwargs"][kwarg] = old_encoder_cfg["visual_core_kwargs"][
+                        kwarg
+                    ]
 
             # Optionally add pooling info too
             if old_encoder_cfg.get("use_spatial_softmax", True):
@@ -329,13 +316,10 @@ def update_config(cfg):
                 "temperature",
                 "noise_std",
             ):
-                if (
-                    "spatial_softmax_kwargs" in old_encoder_cfg
-                    and kwarg in old_encoder_cfg["spatial_softmax_kwargs"]
-                ):
-                    rgb_encoder_cfg["core_kwargs"]["pool_kwargs"][kwarg] = (
-                        old_encoder_cfg["spatial_softmax_kwargs"][kwarg]
-                    )
+                if "spatial_softmax_kwargs" in old_encoder_cfg and kwarg in old_encoder_cfg["spatial_softmax_kwargs"]:
+                    rgb_encoder_cfg["core_kwargs"]["pool_kwargs"][kwarg] = old_encoder_cfg["spatial_softmax_kwargs"][
+                        kwarg
+                    ]
 
             # Update obs randomizer as well
             for kwarg in ("obs_randomizer_class", "obs_randomizer_kwargs"):
@@ -357,9 +341,7 @@ def update_config(cfg):
             }
 
 
-def config_from_checkpoint(
-    algo_name=None, ckpt_path=None, ckpt_dict=None, verbose=False
-):
+def config_from_checkpoint(algo_name=None, ckpt_path=None, ckpt_dict=None, verbose=False):
     """
     Helper function to restore config from a checkpoint file or loaded model dictionary.
 
@@ -424,9 +406,7 @@ def policy_from_checkpoint(device=None, ckpt_path=None, ckpt_dict=None, verbose=
 
     # algo name and config from model dict
     algo_name, _ = algo_name_from_checkpoint(ckpt_dict=ckpt_dict)
-    config, _ = config_from_checkpoint(
-        algo_name=algo_name, ckpt_dict=ckpt_dict, verbose=verbose
-    )
+    config, _ = config_from_checkpoint(algo_name=algo_name, ckpt_dict=ckpt_dict, verbose=verbose)
 
     # read config to set up metadata for observation modalities (e.g. detecting rgb observations)
     ObsUtils.initialize_obs_utils_with_config(config)
@@ -447,9 +427,7 @@ def policy_from_checkpoint(device=None, ckpt_path=None, ckpt_dict=None, verbose=
     if action_normalization_stats is not None:
         for m in action_normalization_stats:
             for k in action_normalization_stats[m]:
-                action_normalization_stats[m][k] = np.array(
-                    action_normalization_stats[m][k]
-                )
+                action_normalization_stats[m][k] = np.array(action_normalization_stats[m][k])
 
     if device is None:
         # get torch device
@@ -520,12 +498,8 @@ def env_from_checkpoint(
         use_image_obs=shape_meta.get("use_images", False),
         use_depth_obs=shape_meta.get("use_depths", False),
     )
-    config, _ = config_from_checkpoint(
-        algo_name=ckpt_dict["algo_name"], ckpt_dict=ckpt_dict, verbose=False
-    )
-    env = EnvUtils.wrap_env_from_config(
-        env, config=config
-    )  # apply environment wrapper, if applicable
+    config, _ = config_from_checkpoint(algo_name=ckpt_dict["algo_name"], ckpt_dict=ckpt_dict, verbose=False)
+    env = EnvUtils.wrap_env_from_config(env, config=config)  # apply environment wrapper, if applicable
     if verbose:
         print("============= Loaded Environment =============")
         print(env)
@@ -587,12 +561,8 @@ def download_url(url, download_dir, check_overwrite=True):
     # If we're checking overwrite and the path already exists,
     # we ask the user to verify that they want to overwrite the file
     if check_overwrite and os.path.exists(file_to_write):
-        user_response = input(
-            f"Warning: file {file_to_write} already exists. Overwrite? y/n\n"
-        )
-        assert user_response.lower() in {"yes", "y"}, (
-            f"Did not receive confirmation. Aborting download."
-        )
+        user_response = input(f"Warning: file {file_to_write} already exists. Overwrite? y/n\n")
+        assert user_response.lower() in {"yes", "y"}, f"Did not receive confirmation. Aborting download."
 
     with DownloadProgressBar(unit="B", unit_scale=True, miniters=1, desc=fname) as t:
         urllib.request.urlretrieve(url, filename=file_to_write, reporthook=t.update_to)
@@ -618,15 +588,9 @@ def download_file_from_hf(repo_id, filename, download_dir, check_overwrite=True)
         # first check if file exists
         file_to_write = os.path.join(download_dir, os.path.basename(filename))
         if check_overwrite and os.path.exists(file_to_write):
-            user_response = input(
-                f"Warning: file {file_to_write} already exists. Overwrite? y/n\n"
-            )
-            assert user_response.lower() in {"yes", "y"}, (
-                f"Did not receive confirmation. Aborting download."
-            )
+            user_response = input(f"Warning: file {file_to_write} already exists. Overwrite? y/n\n")
+            assert user_response.lower() in {"yes", "y"}, f"Did not receive confirmation. Aborting download."
 
         # note: fpath is a pointer, so we need to look up the actual path on disk and then move it
-        fpath = hf_hub_download(
-            repo_id=repo_id, filename=filename, repo_type="dataset", cache_dir=td
-        )
+        fpath = hf_hub_download(repo_id=repo_id, filename=filename, repo_type="dataset", cache_dir=td)
         shutil.move(os.path.realpath(fpath), file_to_write)

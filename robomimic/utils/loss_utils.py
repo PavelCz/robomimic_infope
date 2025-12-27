@@ -56,13 +56,7 @@ def KLD_gaussian_loss(mu_1, logvar_1, mu_2, logvar_2):
     """
     return (
         -0.5
-        * (
-            1.0
-            + logvar_1
-            - logvar_2
-            - ((mu_2 - mu_1).pow(2) / logvar_2.exp())
-            - (logvar_1.exp() / logvar_2.exp())
-        )
+        * (1.0 + logvar_1 - logvar_2 - ((mu_2 - mu_1).pow(2) / logvar_2.exp()) - (logvar_1.exp() / logvar_2.exp()))
         .sum(dim=1)
         .mean()
     )
@@ -195,18 +189,12 @@ def project_values_onto_atoms(values, probabilities, atoms):
     d_neg = torch.cat([vmax[None], atoms], dim=0)[:-1]
 
     # ensure that @values grid is within the support of @atoms
-    clipped_values = values.clamp(min=vmin, max=vmax)[
-        :, None, :
-    ]  # (batch_size, 1, n_atoms)
+    clipped_values = values.clamp(min=vmin, max=vmax)[:, None, :]  # (batch_size, 1, n_atoms)
     clipped_atoms = atoms[None, :, None]  # (1, n_atoms, 1)
 
     # distance between atom values in support
-    d_pos = (d_pos - atoms)[
-        None, :, None
-    ]  # atoms[i + 1] - atoms[i], shape (1, n_atoms, 1)
-    d_neg = (atoms - d_neg)[
-        None, :, None
-    ]  # atoms[i] - atoms[i - 1], shape (1, n_atoms, 1)
+    d_pos = (d_pos - atoms)[None, :, None]  # atoms[i + 1] - atoms[i], shape (1, n_atoms, 1)
+    d_neg = (atoms - d_neg)[None, :, None]  # atoms[i] - atoms[i - 1], shape (1, n_atoms, 1)
 
     # distances between all pairs of grid values
     deltas = clipped_values - clipped_atoms  # (batch_size, n_atoms, n_atoms)

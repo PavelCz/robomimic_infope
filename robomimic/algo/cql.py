@@ -43,12 +43,9 @@ class CQL(PolicyAlgo, ValueAlgo):
 
     def __init__(self, **kwargs):
         # Store entropy / cql settings first since the super init call requires them
-        self.automatic_entropy_tuning = (
-            kwargs["algo_config"].actor.target_entropy is not None
-        )
+        self.automatic_entropy_tuning = kwargs["algo_config"].actor.target_entropy is not None
         self.automatic_cql_tuning = (
-            kwargs["algo_config"].critic.target_q_gap is not None
-            and kwargs["algo_config"].critic.target_q_gap >= 0.0
+            kwargs["algo_config"].critic.target_q_gap is not None and kwargs["algo_config"].critic.target_q_gap >= 0.0
         )
 
         # Run super init first
@@ -62,9 +59,7 @@ class CQL(PolicyAlgo, ValueAlgo):
         self._num_batch_steps = 0
         self.bc_start_steps = self.algo_config.actor.bc_start_steps
         self.deterministic_backup = self.algo_config.critic.deterministic_backup
-        self.td_loss_fcn = (
-            nn.SmoothL1Loss() if self.algo_config.critic.use_huber else nn.MSELoss()
-        )
+        self.td_loss_fcn = nn.SmoothL1Loss() if self.algo_config.critic.use_huber else nn.MSELoss()
 
         # Entropy settings
         self.target_entropy = (
@@ -75,9 +70,7 @@ class CQL(PolicyAlgo, ValueAlgo):
 
         # CQL settings
         self.min_q_weight = self.algo_config.critic.min_q_weight
-        self.target_q_gap = (
-            self.algo_config.critic.target_q_gap if self.automatic_cql_tuning else 0.0
-        )
+        self.target_q_gap = self.algo_config.critic.target_q_gap if self.automatic_cql_tuning else 0.0
 
     @property
     def log_entropy_weight(self):
@@ -132,9 +125,7 @@ class CQL(PolicyAlgo, ValueAlgo):
             goal_shapes=self.goal_shapes,
             ac_dim=self.ac_dim,
             mlp_layer_dims=self.algo_config.actor.layer_dims,
-            encoder_kwargs=ObsUtils.obs_encoder_kwargs_from_config(
-                self.obs_config.encoder
-            ),
+            encoder_kwargs=ObsUtils.obs_encoder_kwargs_from_config(self.obs_config.encoder),
             **actor_args,
         )
 
@@ -149,9 +140,7 @@ class CQL(PolicyAlgo, ValueAlgo):
                     mlp_layer_dims=self.algo_config.critic.layer_dims,
                     value_bounds=self.algo_config.critic.value_bounds,
                     goal_shapes=self.goal_shapes,
-                    encoder_kwargs=ObsUtils.obs_encoder_kwargs_from_config(
-                        self.obs_config.encoder
-                    ),
+                    encoder_kwargs=ObsUtils.obs_encoder_kwargs_from_config(self.obs_config.encoder),
                 )
                 net_list.append(critic)
 
@@ -168,9 +157,7 @@ class CQL(PolicyAlgo, ValueAlgo):
 
         # sync target networks at beginning of training
         with torch.no_grad():
-            for critic, critic_target in zip(
-                self.nets["critic"], self.nets["critic_target"]
-            ):
+            for critic, critic_target in zip(self.nets["critic"], self.nets["critic_target"]):
                 TorchUtils.hard_update(
                     source=critic,
                     target=critic_target,
@@ -226,21 +213,15 @@ class CQL(PolicyAlgo, ValueAlgo):
 
         # remove temporal batches for all
         input_batch["obs"] = {k: batch["obs"][k][:, 0, :] for k in batch["obs"]}
-        input_batch["next_obs"] = {
-            k: batch["next_obs"][k][:, self.n_step - 1, :] for k in batch["next_obs"]
-        }
-        input_batch["goal_obs"] = batch.get(
-            "goal_obs", None
-        )  # goals may not be present
+        input_batch["next_obs"] = {k: batch["next_obs"][k][:, self.n_step - 1, :] for k in batch["next_obs"]}
+        input_batch["goal_obs"] = batch.get("goal_obs", None)  # goals may not be present
         input_batch["actions"] = batch["actions"][:, 0, :]
 
         # note: ensure scalar signals (rewards, done) retain last dimension of 1 to be compatible with model outputs
 
         # single timestep reward is discounted sum of intermediate rewards in sequence
         reward_seq = batch["rewards"][:, : self.n_step]
-        discounts = torch.pow(
-            self.algo_config.discount, torch.arange(self.n_step).float()
-        ).unsqueeze(0)
+        discounts = torch.pow(self.algo_config.discount, torch.arange(self.n_step).float()).unsqueeze(0)
         input_batch["rewards"] = (reward_seq * discounts).sum(dim=1).unsqueeze(1)
 
         # consider this n-step seqeunce done if any intermediate dones are present
@@ -322,16 +303,12 @@ class CQL(PolicyAlgo, ValueAlgo):
         info = OrderedDict()
 
         # Sample actions from policy and get log probs
-        dist = self.nets["actor"].forward_train(
-            obs_dict=batch["obs"], goal_dict=batch["goal_obs"]
-        )
+        dist = self.nets["actor"].forward_train(obs_dict=batch["obs"], goal_dict=batch["goal_obs"])
         actions, log_prob = self._get_actions_and_log_prob(dist=dist)
 
         # Calculate alpha
         entropy_weight_loss = (
-            -(
-                self.log_entropy_weight * (log_prob + self.target_entropy).detach()
-            ).mean()
+            -(self.log_entropy_weight * (log_prob + self.target_entropy).detach()).mean()
             if self.automatic_entropy_tuning
             else 0.0
         )
@@ -339,8 +316,7 @@ class CQL(PolicyAlgo, ValueAlgo):
 
         # Get predicted Q-values for all state, action pairs
         pred_qs = [
-            critic(obs_dict=batch["obs"], acts=actions, goal_dict=batch["goal_obs"])
-            for critic in self.nets["critic"]
+            critic(obs_dict=batch["obs"], acts=actions, goal_dict=batch["goal_obs"]) for critic in self.nets["critic"]
         ]
         # We take the minimum for stability
         pred_qs, _ = torch.cat(pred_qs, dim=1).min(dim=1, keepdim=True)
@@ -356,9 +332,7 @@ class CQL(PolicyAlgo, ValueAlgo):
         # Add info
         info["entropy_weight"] = entropy_weight.item()
         info["entropy_weight_loss"] = (
-            entropy_weight_loss.item()
-            if self.automatic_entropy_tuning
-            else entropy_weight_loss
+            entropy_weight_loss.item() if self.automatic_entropy_tuning else entropy_weight_loss
         )
         info["actor/loss"] = policy_loss
 
@@ -371,9 +345,7 @@ class CQL(PolicyAlgo, ValueAlgo):
                 self.optimizers["entropy"].zero_grad()
                 entropy_weight_loss.backward()
                 self.optimizers["entropy"].step()
-                info["entropy_grad_norms"] = (
-                    self.log_entropy_weight.grad.data.norm(2).pow(2).item()
-                )
+                info["entropy_grad_norms"] = self.log_entropy_weight.grad.data.norm(2).pow(2).item()
 
             # Policy
             actor_grad_norms = TorchUtils.backprop_for_loss(
@@ -453,12 +425,8 @@ class CQL(PolicyAlgo, ValueAlgo):
         ]
 
         # Sample actions at the current and next step
-        curr_dist = self.nets["actor"].forward_train(
-            obs_dict=batch["obs"], goal_dict=batch["goal_obs"]
-        )
-        next_dist = self.nets["actor"].forward_train(
-            obs_dict=batch["next_obs"], goal_dict=batch["goal_obs"]
-        )
+        curr_dist = self.nets["actor"].forward_train(obs_dict=batch["obs"], goal_dict=batch["goal_obs"])
+        next_dist = self.nets["actor"].forward_train(obs_dict=batch["next_obs"], goal_dict=batch["goal_obs"])
         next_actions, next_log_prob = self._get_actions_and_log_prob(dist=next_dist)
 
         # Don't capture gradients here, since the critic target network doesn't get trained (only soft updated)
@@ -466,9 +434,9 @@ class CQL(PolicyAlgo, ValueAlgo):
             # We take the max over all samples if the number of action samples is > 1
             if self.algo_config.critic.num_action_samples > 1:
                 # Generate the target q values, using the backup from the next state
-                temp_actions = next_dist.rsample(
-                    sample_shape=(self.algo_config.critic.num_action_samples,)
-                ).permute(1, 0, 2)
+                temp_actions = next_dist.rsample(sample_shape=(self.algo_config.critic.num_action_samples,)).permute(
+                    1, 0, 2
+                )
                 target_qs = [
                     self._get_qs_from_actions(
                         obs_dict=batch["next_obs"],
@@ -490,10 +458,7 @@ class CQL(PolicyAlgo, ValueAlgo):
             # Take the minimum over all critics
             target_qs, _ = torch.cat(target_qs, dim=1).min(dim=1, keepdim=True)
             # If only sampled once from each critic and not using a deterministic backup, subtract the logprob as well
-            if (
-                self.algo_config.critic.num_action_samples == 1
-                and not self.deterministic_backup
-            ):
+            if self.algo_config.critic.num_action_samples == 1 and not self.deterministic_backup:
                 target_qs = target_qs - self.log_entropy_weight.exp() * next_log_prob
 
             # Calculate the q target values
@@ -502,9 +467,7 @@ class CQL(PolicyAlgo, ValueAlgo):
             q_target = batch["rewards"] + done_mask_batch * self.discount * target_qs
 
         # Calculate CQL stuff
-        cql_random_actions = (
-            torch.FloatTensor(N, B, A).uniform_(-1.0, 1.0).to(self.device)
-        )  # shape (N, B, A)
+        cql_random_actions = torch.FloatTensor(N, B, A).uniform_(-1.0, 1.0).to(self.device)  # shape (N, B, A)
         cql_random_log_prob = np.log(0.5**A)
         cql_curr_actions, cql_curr_log_prob = self._get_actions_and_log_prob(
             dist=curr_dist, sample_shape=(N,)
@@ -512,12 +475,8 @@ class CQL(PolicyAlgo, ValueAlgo):
         cql_next_actions, cql_next_log_prob = self._get_actions_and_log_prob(
             dist=next_dist, sample_shape=(N,)
         )  # shape (N, B, A) and (N, B, 1)
-        cql_curr_log_prob = (
-            cql_curr_log_prob.squeeze(dim=-1).permute(1, 0).detach()
-        )  # shape (B, N)
-        cql_next_log_prob = (
-            cql_next_log_prob.squeeze(dim=-1).permute(1, 0).detach()
-        )  # shape (B, N)
+        cql_curr_log_prob = cql_curr_log_prob.squeeze(dim=-1).permute(1, 0).detach()  # shape (B, N)
+        cql_next_log_prob = cql_next_log_prob.squeeze(dim=-1).permute(1, 0).detach()  # shape (B, N)
         q_cats = []  # Each entry shape will be (B, N)
 
         for critic, q_pred in zip(self.nets["critic"], q_preds):
@@ -560,9 +519,7 @@ class CQL(PolicyAlgo, ValueAlgo):
             td_loss = self.td_loss_fcn(q_pred, q_target)
             # Calculate cql loss
             cql_loss = cql_weight * (
-                self.min_q_weight
-                * (torch.logsumexp(q_cat, dim=1).mean() - q_pred.mean())
-                - self.target_q_gap
+                self.min_q_weight * (torch.logsumexp(q_cat, dim=1).mean() - q_pred.mean()) - self.target_q_gap
             )
             cql_losses.append(cql_loss)
             # Calculate total loss
@@ -581,9 +538,7 @@ class CQL(PolicyAlgo, ValueAlgo):
                 self.optimizers["cql"].zero_grad()
                 cql_weight_loss.backward(retain_graph=True)
                 self.optimizers["cql"].step()
-                info["critic/cql_grad_norms"] = (
-                    self.log_cql_weight.grad.data.norm(2).pow(2).item()
-                )
+                info["critic/cql_grad_norms"] = self.log_cql_weight.grad.data.norm(2).pow(2).item()
 
             # Train critics
             for i, (critic_loss, critic, critic_target, optimizer) in enumerate(
@@ -628,12 +583,8 @@ class CQL(PolicyAlgo, ValueAlgo):
         """
         # Process networks with tanh differently than normal distributions
         if self.algo_config.actor.net.common.use_tanh:
-            actions, actions_pre_tanh = dist.rsample(
-                sample_shape=sample_shape, return_pretanh_value=True
-            )
-            log_prob = dist.log_prob(
-                actions, pre_tanh_value=actions_pre_tanh
-            ).unsqueeze(dim=-1)
+            actions, actions_pre_tanh = dist.rsample(sample_shape=sample_shape, return_pretanh_value=True)
+            log_prob = dist.log_prob(actions, pre_tanh_value=actions_pre_tanh).unsqueeze(dim=-1)
         else:
             actions = dist.rsample(sample_shape=sample_shape)
             log_prob = dist.log_prob(actions)
@@ -692,10 +643,7 @@ class CQL(PolicyAlgo, ValueAlgo):
             optims = [self.optimizers[k]]
             if k == "critic":
                 # account for critic having one optimizer per ensemble member
-                keys = [
-                    "{}{}".format(k, critic_ind)
-                    for critic_ind in range(len(self.nets["critic"]))
-                ]
+                keys = ["{}{}".format(k, critic_ind) for critic_ind in range(len(self.nets["critic"]))]
                 optims = self.optimizers[k]
             for kp, optimizer in zip(keys, optims):
                 for i, param_group in enumerate(optimizer.param_groups):
@@ -719,9 +667,7 @@ class CQL(PolicyAlgo, ValueAlgo):
         """
         loss_log = OrderedDict()
         if "done_masks" in info:
-            loss_log["Critic/Done_Mask_Percentage"] = (
-                100.0 * torch.mean(info["done_masks"]).item()
-            )
+            loss_log["Critic/Done_Mask_Percentage"] = 100.0 * torch.mean(info["done_masks"]).item()
         if "critic/q_targets" in info:
             loss_log["Critic/Q_Targets"] = info["critic/q_targets"].mean().item()
         loss_log["Loss"] = 0.0

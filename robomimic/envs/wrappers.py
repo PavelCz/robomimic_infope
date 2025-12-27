@@ -38,11 +38,7 @@ class EnvWrapper(object):
         while True:
             if isinstance(env, EnvWrapper):
                 if env.class_name() == self.class_name():
-                    raise Exception(
-                        "Attempted to double wrap with Wrapper: {}".format(
-                            self.__class__.__name__
-                        )
-                    )
+                    raise Exception("Attempted to double wrap with Wrapper: {}".format(self.__class__.__name__))
                 env = env.env
             else:
                 break
@@ -112,10 +108,8 @@ class FrameStackWrapper(EnvWrapper):
                 to stack together. Must be greater than 1 (otherwise this wrapper would
                 be a no-op).
         """
-        assert num_frames > 1, (
-            "error: FrameStackWrapper must have num_frames > 1 but got num_frames of {}".format(
-                num_frames
-            )
+        assert num_frames > 1, "error: FrameStackWrapper must have num_frames > 1 but got num_frames of {}".format(
+            num_frames
         )
 
         super(FrameStackWrapper, self).__init__(env=env)
@@ -148,9 +142,7 @@ class FrameStackWrapper(EnvWrapper):
         @self.num_frames.
         """
         # concatenate all frames per key so we return a numpy array per key
-        return {
-            k: np.concatenate(self.obs_history[k], axis=0) for k in self.obs_history
-        }
+        return {k: np.concatenate(self.obs_history[k], axis=0) for k in self.obs_history}
 
     def cache_obs_history(self):
         self.obs_history_cache = deepcopy(self.obs_history)

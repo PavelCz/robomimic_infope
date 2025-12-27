@@ -159,17 +159,15 @@ def modify_config_for_default_image_exp(config):
         # default image encoder architecture is ResNet with spatial softmax
         config.observation.encoder.rgb.core_class = "VisualCore"
         config.observation.encoder.rgb.core_kwargs.feature_dimension = 64
-        config.observation.encoder.rgb.core_kwargs.backbone_class = "ResNet18Conv"  # ResNet backbone for image observations (unused if no image observations)
-        config.observation.encoder.rgb.core_kwargs.backbone_kwargs.pretrained = (
-            False  # kwargs for visual core
+        config.observation.encoder.rgb.core_kwargs.backbone_class = (
+            "ResNet18Conv"  # ResNet backbone for image observations (unused if no image observations)
         )
-        config.observation.encoder.rgb.core_kwargs.backbone_kwargs.input_coord_conv = (
-            False
+        config.observation.encoder.rgb.core_kwargs.backbone_kwargs.pretrained = False  # kwargs for visual core
+        config.observation.encoder.rgb.core_kwargs.backbone_kwargs.input_coord_conv = False
+        config.observation.encoder.rgb.core_kwargs.pool_class = (
+            "SpatialSoftmax"  # Alternate options are "SpatialMeanPool" or None (no pooling)
         )
-        config.observation.encoder.rgb.core_kwargs.pool_class = "SpatialSoftmax"  # Alternate options are "SpatialMeanPool" or None (no pooling)
-        config.observation.encoder.rgb.core_kwargs.pool_kwargs.num_kp = (
-            32  # Default arguments for "SpatialSoftmax"
-        )
+        config.observation.encoder.rgb.core_kwargs.pool_kwargs.num_kp = 32  # Default arguments for "SpatialSoftmax"
         config.observation.encoder.rgb.core_kwargs.pool_kwargs.learnable_temperature = (
             False  # Default arguments for "SpatialSoftmax"
         )
@@ -190,9 +188,7 @@ def modify_config_for_default_image_exp(config):
     return config
 
 
-def modify_config_for_dataset(
-    config, task_name, dataset_type, hdf5_type, base_dataset_dir, filter_key=None
-):
+def modify_config_for_dataset(config, task_name, dataset_type, hdf5_type, base_dataset_dir, filter_key=None):
     """
     Modifies a Config object with experiment, training, and observation settings to
     correspond to experiment settings for the dataset collected on @task_name with
@@ -215,13 +211,9 @@ def modify_config_for_dataset(
         filter_key (str): if not None, use the provided filter key to select a subset of the
             provided dataset
     """
-    assert task_name in DATASET_REGISTRY, (
-        "task {} not found in dataset registry!".format(task_name)
-    )
+    assert task_name in DATASET_REGISTRY, "task {} not found in dataset registry!".format(task_name)
     assert dataset_type in DATASET_REGISTRY[task_name], (
-        "dataset type {} not found for task {} in dataset registry!".format(
-            dataset_type, task_name
-        )
+        "dataset type {} not found for task {} in dataset registry!".format(dataset_type, task_name)
     )
     assert hdf5_type in DATASET_REGISTRY[task_name][dataset_type], (
         "hdf5 type {} not found for dataset type {} and task {} in dataset registry!".format(
@@ -237,9 +229,7 @@ def modify_config_for_dataset(
 
     with config.experiment.values_unlocked():
         # look up rollout evaluation horizon in registry and set it
-        config.experiment.rollout.horizon = DATASET_REGISTRY[task_name][dataset_type][
-            hdf5_type
-        ]["horizon"]
+        config.experiment.rollout.horizon = DATASET_REGISTRY[task_name][dataset_type][hdf5_type]["horizon"]
 
         if dataset_type == "mg":
             # machine-generated datasets did not use validation
@@ -265,19 +255,13 @@ def modify_config_for_dataset(
                 raise ValueError("Unknown dataset type")
         else:
             file_name = url.split("/")[-1]
-        config.train.data = os.path.join(
-            base_dataset_dir, task_name, dataset_type, file_name
-        )
+        config.train.data = os.path.join(base_dataset_dir, task_name, dataset_type, file_name)
         config.train.hdf5_filter_key = None if filter_key is None else filter_key
         config.train.hdf5_validation_filter_key = None
         if config.experiment.validate:
             # set train and valid keys for validation
-            config.train.hdf5_filter_key = (
-                "train" if filter_key is None else "{}_train".format(filter_key)
-            )
-            config.train.hdf5_validation_filter_key = (
-                "valid" if filter_key is None else "{}_valid".format(filter_key)
-            )
+            config.train.hdf5_filter_key = "train" if filter_key is None else "{}_train".format(filter_key)
+            config.train.hdf5_validation_filter_key = "valid" if filter_key is None else "{}_valid".format(filter_key)
 
     with config.observation.values_unlocked():
         # maybe modify observation names and randomization sizes (since image size might be different)
@@ -398,9 +382,7 @@ def modify_bc_config_for_dataset(config, task_name, dataset_type, hdf5_type):
 
     with config.algo.values_unlocked():
         # base parameters that may get modified
-        config.algo.optim_params.policy.learning_rate.initial = (
-            1e-4  # learning rate 1e-4
-        )
+        config.algo.optim_params.policy.learning_rate.initial = 1e-4  # learning rate 1e-4
         config.algo.actor_layer_dims = (1024, 1024)  # MLP size (1024, 1024)
         config.algo.gmm.enabled = True  # enable GMM
 
@@ -409,9 +391,7 @@ def modify_bc_config_for_dataset(config, task_name, dataset_type, hdf5_type):
             config.algo.gmm.enabled = False  # disable GMM
             if hdf5_type in ["low_dim", "low_dim_sparse", "low_dim_dense"]:
                 # low-dim mg uses LR 1e-3
-                config.algo.optim_params.policy.learning_rate.initial = (
-                    1e-3  # learning rate 1e-3
-                )
+                config.algo.optim_params.policy.learning_rate.initial = 1e-3  # learning rate 1e-3
 
     return config
 
@@ -449,9 +429,7 @@ def modify_bc_rnn_config_for_dataset(config, task_name, dataset_type, hdf5_type)
         config.algo.rnn.horizon = 10
 
         # base parameters that may get modified
-        config.algo.optim_params.policy.learning_rate.initial = (
-            1e-4  # learning rate 1e-4
-        )
+        config.algo.optim_params.policy.learning_rate.initial = 1e-4  # learning rate 1e-4
         config.algo.actor_layer_dims = ()  # no MLP layers between rnn layer and output
         config.algo.gmm.enabled = True  # enable GMM
         config.algo.rnn.hidden_dim = 400  # rnn dim 400
@@ -497,9 +475,7 @@ def modify_bcq_config_for_dataset(config, task_name, dataset_type, hdf5_type):
 
     with config.algo.values_unlocked():
         # base parameters that may get modified further
-        config.algo.optim_params.critic.learning_rate.initial = (
-            1e-4  # all learning rates 1e-3
-        )
+        config.algo.optim_params.critic.learning_rate.initial = 1e-4  # all learning rates 1e-3
         config.algo.optim_params.action_sampler.learning_rate.initial = 1e-4
         config.algo.optim_params.actor.learning_rate.initial = 1e-3
         config.algo.actor.enabled = False  # disable actor by default
@@ -514,16 +490,12 @@ def modify_bcq_config_for_dataset(config, task_name, dataset_type, hdf5_type):
         config.algo.actor.layer_dims = (300, 400)
         config.algo.target_tau = 5e-4  # tau 5e-4
         config.algo.discount = 0.99  # discount 0.99
-        config.algo.critic.num_action_samples = (
-            10  # number of action sampler samples at train and test
-        )
+        config.algo.critic.num_action_samples = 10  # number of action sampler samples at train and test
         config.algo.critic.num_action_samples_rollout = 100
 
         if dataset_type == "mg":
             # update hyperparams for machine-generated datasets
-            config.algo.optim_params.critic.learning_rate.initial = (
-                1e-3  # all learning rates 1e-3
-            )
+            config.algo.optim_params.critic.learning_rate.initial = 1e-3  # all learning rates 1e-3
             config.algo.optim_params.action_sampler.learning_rate.initial = 1e-3
             config.algo.optim_params.actor.learning_rate.initial = 1e-3
             config.algo.action_sampler.vae.kl_weight = 0.5  # beta 0.5 for VAE
@@ -598,9 +570,7 @@ def modify_cql_config_for_dataset(config, task_name, dataset_type, hdf5_type):
         # base parameters that may get modified further
         config.algo.optim_params.critic.learning_rate.initial = 1e-3  # learning rates
         config.algo.optim_params.actor.learning_rate.initial = 3e-4
-        config.algo.actor.target_entropy = (
-            "default"  # use automatic entropy tuning to default target value
-        )
+        config.algo.actor.target_entropy = "default"  # use automatic entropy tuning to default target value
         config.algo.critic.deterministic_backup = True  # deterministic Q-backup
         config.algo.critic.target_q_gap = 5.0  # use Lagrange, with threshold 5.0
         config.algo.critic.min_q_weight = 1.0
@@ -635,17 +605,13 @@ def modify_hbc_config_for_dataset(config, task_name, dataset_type, hdf5_type):
     assert isinstance(config, HBCConfig), "must be HBCConfig"
     assert config.algo_name == "hbc", "must be HBCConfig"
     assert dataset_type in ["ph", "mh", "mg", "paired"], "invalid dataset type"
-    assert hdf5_type in ["low_dim", "low_dim_sparse", "low_dim_dense"], (
-        "HBC only runs on low-dim"
-    )
+    assert hdf5_type in ["low_dim", "low_dim_sparse", "low_dim_dense"], "HBC only runs on low-dim"
     is_real_dataset = "real" in task_name
     assert not is_real_dataset, "we only ran BC-RNN on real robot"
 
     with config.algo.values_unlocked():
         # base parameters that may get modified further
-        config.algo.actor.optim_params.policy.learning_rate.initial = (
-            1e-3  # learning rates
-        )
+        config.algo.actor.optim_params.policy.learning_rate.initial = 1e-3  # learning rates
         config.algo.planner.optim_params.goal_network.learning_rate.initial = 1e-3
 
         config.algo.planner.vae.enabled = True  # goal VAE settings
@@ -690,17 +656,13 @@ def modify_iris_config_for_dataset(config, task_name, dataset_type, hdf5_type):
     assert isinstance(config, IRISConfig), "must be IRISConfig"
     assert config.algo_name == "iris", "must be IRISConfig"
     assert dataset_type in ["ph", "mh", "mg", "paired"], "invalid dataset type"
-    assert hdf5_type in ["low_dim", "low_dim_sparse", "low_dim_dense"], (
-        "IRIS only runs on low-dim"
-    )
+    assert hdf5_type in ["low_dim", "low_dim_sparse", "low_dim_dense"], "IRIS only runs on low-dim"
     is_real_dataset = "real" in task_name
     assert not is_real_dataset, "we only ran BC-RNN on real robot"
 
     with config.algo.values_unlocked():
         # base parameters that may get modified further
-        config.algo.actor.optim_params.policy.learning_rate.initial = (
-            1e-3  # learning rates
-        )
+        config.algo.actor.optim_params.policy.learning_rate.initial = 1e-3  # learning rates
         config.algo.value_planner.planner.optim_params.goal_network.learning_rate.initial = 1e-3
         config.algo.value_planner.value.optim_params.critic.learning_rate.initial = 1e-3
         config.algo.value_planner.value.optim_params.action_sampler.learning_rate.initial = 1e-4
@@ -708,9 +670,7 @@ def modify_iris_config_for_dataset(config, task_name, dataset_type, hdf5_type):
         config.algo.value_planner.planner.vae.enabled = True  # goal VAE settings
         config.algo.value_planner.planner.vae.kl_weight = 5e-4  # beta 5e-4
         config.algo.value_planner.planner.vae.latent_dim = 14  # latent dim 14
-        config.algo.value_planner.planner.vae.prior.learn = (
-            True  # learn GMM prior with 10 modes
-        )
+        config.algo.value_planner.planner.vae.prior.learn = True  # learn GMM prior with 10 modes
         config.algo.value_planner.planner.vae.prior.is_conditioned = True
         config.algo.value_planner.planner.vae.prior.use_gmm = True
         config.algo.value_planner.planner.vae.prior.gmm_learn_weights = True
@@ -738,9 +698,7 @@ def modify_iris_config_for_dataset(config, task_name, dataset_type, hdf5_type):
         if dataset_type in ["mg"]:
             # Enable value actor and set larger target tau
             config.algo.value_planner.value.actor.enabled = True
-            config.algo.value_planner.value.optim_params.actor.learning_rate.initial = (
-                1e-3
-            )
+            config.algo.value_planner.value.optim_params.actor.learning_rate.initial = 1e-3
             config.algo.value_planner.value.target_tau = 5e-3
 
     return config
@@ -830,16 +788,10 @@ def generate_experiment_config(
 
     # account for filter key in experiment naming and directory naming
     filter_key_str = "_{}".format(filter_key) if filter_key is not None else ""
-    dataset_type_dir = (
-        "{}/{}".format(dataset_type, filter_key)
-        if filter_key is not None
-        else dataset_type
-    )
+    dataset_type_dir = "{}/{}".format(dataset_type, filter_key) if filter_key is not None else dataset_type
 
     # account for @additional_name
-    additional_name_str = (
-        "_{}".format(additional_name) if additional_name is not None else ""
-    )
+    additional_name_str = "_{}".format(additional_name) if additional_name is not None else ""
     json_name = "{}{}".format(algo_name, additional_name_str)
 
     # set experiment name
@@ -868,9 +820,7 @@ def generate_experiment_config(
         )
 
     # save config to json file
-    dir_to_save = os.path.join(
-        base_config_dir, base_exp_name, task_name, dataset_type_dir, hdf5_type
-    )
+    dir_to_save = os.path.join(base_config_dir, base_exp_name, task_name, dataset_type_dir, hdf5_type)
     os.makedirs(dir_to_save, exist_ok=True)
     json_path = os.path.join(dir_to_save, "{}.json".format(json_name))
     config.dump(filename=json_path)
@@ -933,9 +883,7 @@ def generate_core_configs(
                     )
 
                     # save json path into dict
-                    core_json_paths[task][dataset_type][hdf5_type][algo_name] = (
-                        json_path
-                    )
+                    core_json_paths[task][dataset_type][hdf5_type][algo_name] = json_path
 
     return core_json_paths
 
@@ -1001,9 +949,7 @@ def generate_subopt_configs(
 
                         # save json path into dict
                         dataset_type_dir = "{}/{}".format(dataset_type, fk)
-                        subopt_json_paths[task][dataset_type_dir][hdf5_type][
-                            algo_name
-                        ] = json_path
+                        subopt_json_paths[task][dataset_type_dir][hdf5_type][algo_name] = json_path
 
     return subopt_json_paths
 
@@ -1054,9 +1000,7 @@ def generate_dataset_size_configs(
 
                     # save json path into dict
                     dataset_type_dir = "{}/{}".format(dataset_type, fk)
-                    size_ablation_json_paths[task][dataset_type_dir][hdf5_type][
-                        algo_name
-                    ] = json_path
+                    size_ablation_json_paths[task][dataset_type_dir][hdf5_type][algo_name] = json_path
 
     return size_ablation_json_paths
 
@@ -1089,35 +1033,25 @@ def generate_obs_ablation_configs(
     def add_eef_vel(config):
         with config.observation.values_unlocked():
             old_low_dim_mods = list(config.observation.modalities.obs.low_dim)
-            old_low_dim_mods.extend(
-                ["robot0_eef_vel_lin", "robot0_eef_vel_ang", "robot0_gripper_qvel"]
-            )
+            old_low_dim_mods.extend(["robot0_eef_vel_lin", "robot0_eef_vel_ang", "robot0_gripper_qvel"])
             if "robot1_eef_pos" in old_low_dim_mods:
-                old_low_dim_mods.extend(
-                    ["robot1_eef_vel_lin", "robot1_eef_vel_ang", "robot1_gripper_qvel"]
-                )
+                old_low_dim_mods.extend(["robot1_eef_vel_lin", "robot1_eef_vel_ang", "robot1_gripper_qvel"])
             config.observation.modalities.obs.low_dim = old_low_dim_mods
         return config
 
     def add_proprio(config):
         with config.observation.values_unlocked():
             old_low_dim_mods = list(config.observation.modalities.obs.low_dim)
-            old_low_dim_mods.extend(
-                ["robot0_joint_pos_cos", "robot0_joint_pos_sin", "robot0_joint_vel"]
-            )
+            old_low_dim_mods.extend(["robot0_joint_pos_cos", "robot0_joint_pos_sin", "robot0_joint_vel"])
             if "robot1_eef_pos" in old_low_dim_mods:
-                old_low_dim_mods.extend(
-                    ["robot1_joint_pos_cos", "robot1_joint_pos_sin", "robot1_joint_vel"]
-                )
+                old_low_dim_mods.extend(["robot1_joint_pos_cos", "robot1_joint_pos_sin", "robot1_joint_vel"])
             config.observation.modalities.obs.low_dim = old_low_dim_mods
         return config
 
     def remove_wrist(config):
         with config.observation.values_unlocked():
             old_image_mods = list(config.observation.modalities.obs.rgb)
-            config.observation.modalities.obs.rgb = [
-                m for m in old_image_mods if "eye_in_hand" not in m
-            ]
+            config.observation.modalities.obs.rgb = [m for m in old_image_mods if "eye_in_hand" not in m]
         return config
 
     def remove_rand(config):
@@ -1161,9 +1095,7 @@ def generate_obs_ablation_configs(
 
                         # save json path into dict
                         algo_name_str = "{}_{}".format(algo_name, obs_modifier.__name__)
-                        obs_ablation_json_paths[task][dataset_type][hdf5_type][
-                            algo_name_str
-                        ] = json_path
+                        obs_ablation_json_paths[task][dataset_type][hdf5_type][algo_name_str] = json_path
 
     return obs_ablation_json_paths
 
@@ -1264,9 +1196,7 @@ def generate_hyper_ablation_configs(
 
                     # save json path into dict
                     algo_name_str = "{}_{}".format(algo_name, hyper_modifier.__name__)
-                    hyper_ablation_json_paths[task][dataset_type][hdf5_type][
-                        algo_name_str
-                    ] = json_path
+                    hyper_ablation_json_paths[task][dataset_type][hdf5_type][algo_name_str] = json_path
 
     return hyper_ablation_json_paths
 
@@ -1311,14 +1241,10 @@ def generate_d4rl_configs(
             config.algo.optim_params.critic.learning_rate.initial = 3e-4
             config.algo.optim_params.actor.learning_rate.initial = 3e-5
             config.algo.actor.bc_start_steps = 40000  # pre-training steps for actor
-            config.algo.critic.target_q_gap = (
-                None  # no Lagrange, and fixed weight of 10.0
-            )
+            config.algo.critic.target_q_gap = None  # no Lagrange, and fixed weight of 10.0
             config.algo.critic.cql_weight = 10.0
             config.algo.critic.min_q_weight = 1.0
-            config.algo.critic.deterministic_backup = (
-                True  # deterministic backup (no entropy in Q-target)
-            )
+            config.algo.critic.deterministic_backup = True  # deterministic backup (no entropy in Q-target)
             config.algo.actor.layer_dims = (256, 256, 256)  # MLP sizes
             config.algo.critic.layer_dims = (256, 256, 256)
         return config
@@ -1365,9 +1291,7 @@ def generate_d4rl_configs(
                     config.experiment = ref_config.experiment
                     config.train = ref_config.train
                     config.observation = ref_config.observation
-                    config.train.hdf5_normalize_obs = (
-                        False  # only TD3-BC uses observation normalization
-                    )
+                    config.train.hdf5_normalize_obs = False  # only TD3-BC uses observation normalization
 
             # modify algo section for d4rl defaults
             if algo_name == "bcq":
@@ -1499,15 +1423,9 @@ if __name__ == "__main__":
                             f.write("#    dataset type: {}\n".format(dataset_type))
                         if len(hdf5_type) > 0:
                             f.write("#      hdf5 type: {}\n".format(hdf5_type))
-                        for algo_name in config_json_paths[exp_name][task][
-                            dataset_type
-                        ][hdf5_type]:
+                        for algo_name in config_json_paths[exp_name][task][dataset_type][hdf5_type]:
                             # f.write("#        {}\n".format(algo_name))
-                            exp_json_path = config_json_paths[exp_name][task][
-                                dataset_type
-                            ][hdf5_type][algo_name]
-                            cmd = "python {} --config {}\n".format(
-                                train_script_loc, exp_json_path
-                            )
+                            exp_json_path = config_json_paths[exp_name][task][dataset_type][hdf5_type][algo_name]
+                            cmd = "python {} --config {}\n".format(train_script_loc, exp_json_path)
                             f.write(cmd)
             f.write("\n")

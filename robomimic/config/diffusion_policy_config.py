@@ -34,9 +34,7 @@ class DiffusionPolicyConfig(BaseConfig):
 
         # optimization parameters
         self.algo.optim_params.policy.optimizer_type = "adamw"
-        self.algo.optim_params.policy.learning_rate.initial = (
-            1e-4  # policy learning rate
-        )
+        self.algo.optim_params.policy.learning_rate.initial = 1e-4  # policy learning rate
         self.algo.optim_params.policy.learning_rate.decay_factor = (
             0.1  # factor to decay LR by (if epoch schedule non-empty)
         )
@@ -50,9 +48,7 @@ class DiffusionPolicyConfig(BaseConfig):
         )
         self.algo.optim_params.policy.learning_rate.epoch_schedule = []  # epochs where LR decay occurs (used by "linear" and "multistep" schedulers)
         self.algo.optim_params.policy.learning_rate.do_not_lock_keys()
-        self.algo.optim_params.policy.regularization.L2 = (
-            1e-6  # L2 regularization strength
-        )
+        self.algo.optim_params.policy.regularization.L2 = 1e-6  # L2 regularization strength
 
         # horizon parameters
         self.algo.horizon.observation_horizon = 2

@@ -25,9 +25,7 @@ for OLD_DIR, NEW_DIR in zip(OLD_DIRS, NEW_DIRS):
     for root, _, files in os.walk(HTML_DIR):
         for fname in files:
             fpath = os.path.join(root, fname)
-            assert "_build/html" in fpath, (
-                "This script should only be run in the HTML build directory."
-            )
+            assert "_build/html" in fpath, "This script should only be run in the HTML build directory."
             # Only process html files
             if fname.endswith(".html"):
                 with open(fpath, "r", encoding="utf-8") as f:

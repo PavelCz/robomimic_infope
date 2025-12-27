@@ -58,17 +58,15 @@ class TD3_BCConfig(BaseConfig):
         """
 
         # optimization parameters
-        self.algo.optim_params.critic.learning_rate.initial = (
-            3e-4  # critic learning rate
-        )
+        self.algo.optim_params.critic.learning_rate.initial = 3e-4  # critic learning rate
         self.algo.optim_params.critic.learning_rate.decay_factor = (
             0.1  # factor to decay LR by (if epoch schedule non-empty)
         )
         self.algo.optim_params.critic.learning_rate.epoch_schedule = []  # epochs where LR decay occurs
-        self.algo.optim_params.critic.regularization.L2 = (
-            0.00  # L2 regularization strength
-        )
-        self.algo.optim_params.critic.start_epoch = -1  # number of epochs before starting critic training (-1 means start right away)
+        self.algo.optim_params.critic.regularization.L2 = 0.00  # L2 regularization strength
+        self.algo.optim_params.critic.start_epoch = (
+            -1
+        )  # number of epochs before starting critic training (-1 means start right away)
         self.algo.optim_params.critic.end_epoch = (
             -1
         )  # number of epochs before ending critic training (-1 means start right away)
@@ -78,9 +76,7 @@ class TD3_BCConfig(BaseConfig):
             0.1  # factor to decay LR by (if epoch schedule non-empty)
         )
         self.algo.optim_params.actor.learning_rate.epoch_schedule = []  # epochs where LR decay occurs
-        self.algo.optim_params.actor.regularization.L2 = (
-            0.00  # L2 regularization strength
-        )
+        self.algo.optim_params.actor.regularization.L2 = 0.00  # L2 regularization strength
         self.algo.optim_params.actor.start_epoch = (
             -1
         )  # number of epochs before starting actor training (-1 means start right away)
@@ -95,22 +91,18 @@ class TD3_BCConfig(BaseConfig):
         self.algo.discount = 0.99  # discount factor to use
         self.algo.n_step = 1  # for using n-step returns in TD-updates
         self.algo.target_tau = 0.005  # update rate for target networks
-        self.algo.infinite_horizon = False  # if True, scale terminal rewards by 1 / (1 - discount) to treat as infinite horizon
+        self.algo.infinite_horizon = (
+            False  # if True, scale terminal rewards by 1 / (1 - discount) to treat as infinite horizon
+        )
 
         # ================== Critic Network Config ===================
         self.algo.critic.use_huber = False  # Huber Loss instead of L2 for critic
-        self.algo.critic.max_gradient_norm = (
-            None  # L2 gradient clipping for critic (None to use no clipping)
-        )
-        self.algo.critic.value_bounds = (
-            None  # optional 2-tuple to ensure lower and upper bound on value estimates
-        )
+        self.algo.critic.max_gradient_norm = None  # L2 gradient clipping for critic (None to use no clipping)
+        self.algo.critic.value_bounds = None  # optional 2-tuple to ensure lower and upper bound on value estimates
 
         # critic ensemble parameters (TD3 trick)
         self.algo.critic.ensemble.n = 2  # number of Q networks in the ensemble
-        self.algo.critic.ensemble.weight = (
-            1.0  # weighting for mixing min and max for target Q value
-        )
+        self.algo.critic.ensemble.weight = 1.0  # weighting for mixing min and max for target Q value
 
         self.algo.critic.layer_dims = (256, 256)  # size of critic MLP
 
@@ -120,12 +112,8 @@ class TD3_BCConfig(BaseConfig):
         self.algo.actor.update_freq = 2
 
         # exploration noise used to form target action for Q-update - clipped Gaussian noise
-        self.algo.actor.noise_std = (
-            0.2  # zero-mean gaussian noise with this std is applied to actions
-        )
-        self.algo.actor.noise_clip = (
-            0.5  # noise is clipped in each dimension to (-noise_clip, noise_clip)
-        )
+        self.algo.actor.noise_std = 0.2  # zero-mean gaussian noise with this std is applied to actions
+        self.algo.actor.noise_clip = 0.5  # noise is clipped in each dimension to (-noise_clip, noise_clip)
 
         self.algo.actor.layer_dims = (256, 256)  # size of actor MLP
 

@@ -120,9 +120,7 @@ class SequenceDataset(torch.utils.data.Dataset):
         self.dataset_keys = tuple(dataset_keys)
         # add action keys to dataset keys
         if self.action_keys is not None:
-            self.dataset_keys = tuple(
-                set(self.dataset_keys).union(set(self.action_keys))
-            )
+            self.dataset_keys = tuple(set(self.dataset_keys).union(set(self.action_keys)))
 
         self.action_config = action_config
 
@@ -142,9 +140,7 @@ class SequenceDataset(torch.utils.data.Dataset):
         self.pad_frame_stack = pad_frame_stack
         self.get_pad_mask = get_pad_mask
 
-        self.load_demo_info(
-            filter_by_attribute=self.filter_by_attribute, demo_limit=demo_limit
-        )
+        self.load_demo_info(filter_by_attribute=self.filter_by_attribute, demo_limit=demo_limit)
 
         # maybe prepare for observation normalization
         self.obs_normalization_stats = None
@@ -177,9 +173,7 @@ class SequenceDataset(torch.utils.data.Dataset):
                 # cache getitem calls for even more speedup. We don't do this for
                 # "low-dim" since image observations require calls to getitem anyways.
                 print("SequenceDataset: caching get_item calls...")
-                self.getitem_cache = [
-                    self.get_item(i) for i in LogUtils.custom_tqdm(range(len(self)))
-                ]
+                self.getitem_cache = [self.get_item(i) for i in LogUtils.custom_tqdm(range(len(self)))]
 
                 # don't need the previous cache anymore
                 del self.hdf5_cache
@@ -204,10 +198,7 @@ class SequenceDataset(torch.utils.data.Dataset):
             self.demos = demos
         elif filter_by_attribute is not None:
             self.demos = [
-                elem.decode("utf-8")
-                for elem in np.array(
-                    self.hdf5_file["mask/{}".format(filter_by_attribute)][:]
-                )
+                elem.decode("utf-8") for elem in np.array(self.hdf5_file["mask/{}".format(filter_by_attribute)][:])
             ]
         else:
             self.demos = list(self.hdf5_file["data"].keys())
@@ -245,9 +236,7 @@ class SequenceDataset(torch.utils.data.Dataset):
                 assert demo_length >= 1  # sequence needs to have at least one sample
                 num_sequences = max(num_sequences, 1)
             else:
-                assert (
-                    num_sequences >= 1
-                )  # assume demo_length >= (self.n_frame_stack - 1 + self.seq_length)
+                assert num_sequences >= 1  # assume demo_length >= (self.n_frame_stack - 1 + self.seq_length)
 
             for _ in range(num_sequences):
                 self._index_to_demo_id[self.total_num_sequences] = ep
@@ -259,9 +248,7 @@ class SequenceDataset(torch.utils.data.Dataset):
         This property allows for a lazy hdf5 file open.
         """
         if self._hdf5_file is None:
-            self._hdf5_file = h5py.File(
-                self.hdf5_path, "r", swmr=self.hdf5_use_swmr, libver="latest"
-            )
+            self._hdf5_file = h5py.File(self.hdf5_path, "r", swmr=self.hdf5_use_swmr, libver="latest")
         return self._hdf5_file
 
     def close_and_delete_hdf5_handle(self):
@@ -295,13 +282,9 @@ class SequenceDataset(torch.utils.data.Dataset):
         msg += "\tpad_seq_length={}\n\tpad_frame_stack={}\n\tgoal_mode={}\n"
         msg += "\tcache_mode={}\n"
         msg += "\tnum_demos={}\n\tnum_sequences={}\n)"
-        filter_key_str = (
-            self.filter_by_attribute if self.filter_by_attribute is not None else "none"
-        )
+        filter_key_str = self.filter_by_attribute if self.filter_by_attribute is not None else "none"
         goal_mode_str = self.goal_mode if self.goal_mode is not None else "none"
-        cache_mode_str = (
-            self.hdf5_cache_mode if self.hdf5_cache_mode is not None else "none"
-        )
+        cache_mode_str = self.hdf5_cache_mode if self.hdf5_cache_mode is not None else "none"
         msg = msg.format(
             self.hdf5_path,
             self.obs_keys,
@@ -324,9 +307,7 @@ class SequenceDataset(torch.utils.data.Dataset):
         """
         return self.total_num_sequences
 
-    def load_dataset_in_memory(
-        self, demo_list, hdf5_file, obs_keys, dataset_keys, load_next_obs
-    ):
+    def load_dataset_in_memory(self, demo_list, hdf5_file, obs_keys, dataset_keys, load_next_obs):
         """
         Loads the hdf5 dataset into memory, preserving the structure of the file. Note that this
         differs from `self.getitem_cache`, which, if active, actually caches the outputs of the
@@ -347,33 +328,20 @@ class SequenceDataset(torch.utils.data.Dataset):
         for ep in LogUtils.custom_tqdm(demo_list):
             all_data[ep] = {}
             all_data[ep]["attrs"] = {}
-            all_data[ep]["attrs"]["num_samples"] = hdf5_file[
-                "data/{}".format(ep)
-            ].attrs["num_samples"]
+            all_data[ep]["attrs"]["num_samples"] = hdf5_file["data/{}".format(ep)].attrs["num_samples"]
             # get obs
-            all_data[ep]["obs"] = {
-                k: hdf5_file["data/{}/obs/{}".format(ep, k)][()] for k in obs_keys
-            }
+            all_data[ep]["obs"] = {k: hdf5_file["data/{}/obs/{}".format(ep, k)][()] for k in obs_keys}
             if load_next_obs:
-                all_data[ep]["next_obs"] = {
-                    k: hdf5_file["data/{}/next_obs/{}".format(ep, k)][()]
-                    for k in obs_keys
-                }
+                all_data[ep]["next_obs"] = {k: hdf5_file["data/{}/next_obs/{}".format(ep, k)][()] for k in obs_keys}
             # get other dataset keys
             for k in dataset_keys:
                 if k in hdf5_file["data/{}".format(ep)]:
-                    all_data[ep][k] = hdf5_file["data/{}/{}".format(ep, k)][()].astype(
-                        "float32"
-                    )
+                    all_data[ep][k] = hdf5_file["data/{}/{}".format(ep, k)][()].astype("float32")
                 else:
-                    all_data[ep][k] = np.zeros(
-                        (all_data[ep]["attrs"]["num_samples"], 1), dtype=np.float32
-                    )
+                    all_data[ep][k] = np.zeros((all_data[ep]["attrs"]["num_samples"], 1), dtype=np.float32)
 
             if "model_file" in hdf5_file["data/{}".format(ep)].attrs:
-                all_data[ep]["attrs"]["model_file"] = hdf5_file[
-                    "data/{}".format(ep)
-                ].attrs["model_file"]
+                all_data[ep]["attrs"]["model_file"] = hdf5_file["data/{}".format(ep)].attrs["model_file"]
 
         return all_data
 
@@ -386,18 +354,12 @@ class SequenceDataset(torch.utils.data.Dataset):
         # Run through all trajectories. For each one, compute minimal observation statistics, and then aggregate
         # with the previous statistics.
         ep = self.demos[0]
-        obs_traj = {
-            k: self.hdf5_file["data/{}/obs/{}".format(ep, k)][()].astype("float32")
-            for k in self.obs_keys
-        }
+        obs_traj = {k: self.hdf5_file["data/{}/obs/{}".format(ep, k)][()].astype("float32") for k in self.obs_keys}
         obs_traj = ObsUtils.process_obs_dict(obs_traj)
         merged_stats = _compute_traj_stats(obs_traj)
         print("SequenceDataset: normalizing observations...")
         for ep in LogUtils.custom_tqdm(self.demos[1:]):
-            obs_traj = {
-                k: self.hdf5_file["data/{}/obs/{}".format(ep, k)][()].astype("float32")
-                for k in self.obs_keys
-            }
+            obs_traj = {k: self.hdf5_file["data/{}/obs/{}".format(ep, k)][()].astype("float32") for k in self.obs_keys}
             obs_traj = ObsUtils.process_obs_dict(obs_traj)
             traj_stats = _compute_traj_stats(obs_traj)
             merged_stats = _aggregate_traj_stats(merged_stats, traj_stats)
@@ -405,9 +367,7 @@ class SequenceDataset(torch.utils.data.Dataset):
         obs_normalization_stats = {k: {} for k in merged_stats}
         for k in merged_stats:
             # note we add a small tolerance of 1e-3 for std
-            obs_normalization_stats[k]["offset"] = merged_stats[k]["mean"].astype(
-                np.float32
-            )
+            obs_normalization_stats[k]["offset"] = merged_stats[k]["mean"].astype(np.float32)
             obs_normalization_stats[k]["scale"] = (
                 np.sqrt(merged_stats[k]["sqdiff"] / merged_stats[k]["n"]) + 1e-3
             ).astype(np.float32)
@@ -430,9 +390,7 @@ class SequenceDataset(torch.utils.data.Dataset):
     def get_action_traj(self, ep):
         action_traj = dict()
         for key in self.action_keys:
-            action_traj[key] = self.hdf5_file["data/{}/{}".format(ep, key)][()].astype(
-                "float32"
-            )
+            action_traj[key] = self.hdf5_file["data/{}/{}".format(ep, key)][()].astype("float32")
         return action_traj
 
     def get_action_stats(self):
@@ -459,9 +417,7 @@ class SequenceDataset(torch.utils.data.Dataset):
         # with the previous statistics.
         if self.action_normalization_stats is None:
             action_stats = self.get_action_stats()
-            self.action_normalization_stats = action_stats_to_normalization_stats(
-                action_stats, self.action_config
-            )
+            self.action_normalization_stats = action_stats_to_normalization_stats(action_stats, self.action_config)
         return self.action_normalization_stats
 
     def get_dataset_for_ep(self, ep, key):
@@ -526,8 +482,7 @@ class SequenceDataset(torch.utils.data.Dataset):
             demo_id,
             index_in_demo=index_in_demo,
             keys=self.dataset_keys,
-            num_frames_to_stack=self.n_frame_stack
-            - 1,  # note: need to decrement self.n_frame_stack by one
+            num_frames_to_stack=self.n_frame_stack - 1,  # note: need to decrement self.n_frame_stack by one
             seq_length=self.seq_length,
         )
 
@@ -564,9 +519,7 @@ class SequenceDataset(torch.utils.data.Dataset):
                 seq_length=1,
                 prefix="next_obs",
             )
-            meta["goal_obs"] = {
-                k: goal[k][0] for k in goal
-            }  # remove sequence dimension for goal
+            meta["goal_obs"] = {k: goal[k][0] for k in goal}  # remove sequence dimension for goal
 
         # get action components
         ac_dict = OrderedDict()
@@ -579,9 +532,7 @@ class SequenceDataset(torch.utils.data.Dataset):
 
         # normalize actions
         action_normalization_stats = self.get_action_normalization_stats()
-        ac_dict = ObsUtils.normalize_dict(
-            ac_dict, normalization_stats=action_normalization_stats
-        )
+        ac_dict = ObsUtils.normalize_dict(ac_dict, normalization_stats=action_normalization_stats)
 
         # concatenate all action components
         meta["actions"] = PyUtils.action_dict_to_vector(ac_dict)
@@ -596,9 +547,7 @@ class SequenceDataset(torch.utils.data.Dataset):
 
         return meta
 
-    def get_sequence_from_demo(
-        self, demo_id, index_in_demo, keys, num_frames_to_stack=0, seq_length=1
-    ):
+    def get_sequence_from_demo(self, demo_id, index_in_demo, keys, num_frames_to_stack=0, seq_length=1):
         """
         Extract a (sub)sequence of data items from a demo given the @keys of the items.
 
@@ -623,12 +572,8 @@ class SequenceDataset(torch.utils.data.Dataset):
         seq_end_index = min(demo_length, index_in_demo + seq_length)
 
         # determine sequence padding
-        seq_begin_pad = max(
-            0, num_frames_to_stack - index_in_demo
-        )  # pad for frame stacking
-        seq_end_pad = max(
-            0, index_in_demo + seq_length - demo_length
-        )  # pad for sequence length
+        seq_begin_pad = max(0, num_frames_to_stack - index_in_demo)  # pad for frame stacking
+        seq_end_pad = max(0, index_in_demo + seq_length - demo_length)  # pad for sequence length
 
         # make sure we are not padding if specified.
         if not self.pad_frame_stack:
@@ -642,14 +587,8 @@ class SequenceDataset(torch.utils.data.Dataset):
             data = self.get_dataset_for_ep(demo_id, k)
             seq[k] = data[seq_begin_index:seq_end_index]
 
-        seq = TensorUtils.pad_sequence(
-            seq, padding=(seq_begin_pad, seq_end_pad), pad_same=True
-        )
-        pad_mask = np.array(
-            [0] * seq_begin_pad
-            + [1] * (seq_end_index - seq_begin_index)
-            + [0] * seq_end_pad
-        )
+        seq = TensorUtils.pad_sequence(seq, padding=(seq_begin_pad, seq_end_pad), pad_same=True)
+        pad_mask = np.array([0] * seq_begin_pad + [1] * (seq_end_index - seq_begin_index) + [0] * seq_end_pad)
         pad_mask = pad_mask[:, None].astype(bool)
 
         return seq, pad_mask
@@ -690,9 +629,7 @@ class SequenceDataset(torch.utils.data.Dataset):
 
         return obs
 
-    def get_dataset_sequence_from_demo(
-        self, demo_id, index_in_demo, keys, num_frames_to_stack=0, seq_length=1
-    ):
+    def get_dataset_sequence_from_demo(self, demo_id, index_in_demo, keys, num_frames_to_stack=0, seq_length=1):
         """
         Extract a (sub)sequence of dataset items from a demo given the @keys of the items (e.g., states, actions).
 
@@ -729,8 +666,7 @@ class SequenceDataset(torch.utils.data.Dataset):
             demo_id,
             index_in_demo=0,
             keys=self.dataset_keys,
-            num_frames_to_stack=self.n_frame_stack
-            - 1,  # note: need to decrement self.n_frame_stack by one
+            num_frames_to_stack=self.n_frame_stack - 1,  # note: need to decrement self.n_frame_stack by one
             seq_length=demo_length,
         )
         meta["obs"] = self.get_obs_sequence_from_demo(
@@ -852,9 +788,7 @@ class MetaDataset(torch.utils.data.Dataset):
 
     def get_dataset_sampler(self):
         weights = np.ones(len(self))
-        for i, (start, end) in enumerate(
-            zip(self._ds_ind_bins[:-1], self._ds_ind_bins[1:])
-        ):
+        for i, (start, end) in enumerate(zip(self._ds_ind_bins[:-1], self._ds_ind_bins[1:])):
             weights[start:end] = self.ds_weights[i]
 
         sampler = CustomWeightedRandomSampler(
@@ -868,9 +802,7 @@ class MetaDataset(torch.utils.data.Dataset):
         meta_action_stats = self.datasets[0].get_action_stats()
         for dataset in self.datasets[1:]:
             ds_action_stats = dataset.get_action_stats()
-            meta_action_stats = _aggregate_traj_stats(
-                meta_action_stats, ds_action_stats
-            )
+            meta_action_stats = _aggregate_traj_stats(meta_action_stats, ds_action_stats)
 
         return meta_action_stats
 
@@ -964,12 +896,8 @@ def action_stats_to_normalization_stats(action_stats, action_config):
         if norm_method is None:
             # no normalization, unit scale, zero offset
             action_normalization_stats[action_key] = {
-                "scale": np.ones_like(
-                    action_stats[action_key]["mean"], dtype=np.float32
-                ),
-                "offset": np.zeros_like(
-                    action_stats[action_key]["mean"], dtype=np.float32
-                ),
+                "scale": np.ones_like(action_stats[action_key]["mean"], dtype=np.float32),
+                "offset": np.zeros_like(action_stats[action_key]["mean"], dtype=np.float32),
             }
         elif norm_method == "min_max":
             # normalize min to -1 and max to 1
@@ -1006,9 +934,7 @@ def action_stats_to_normalization_stats(action_stats, action_config):
         elif norm_method == "gaussian":
             # normalize to zero mean unit variance
             input_mean = action_stats[action_key]["mean"].astype(np.float32)
-            input_std = np.sqrt(
-                action_stats[action_key]["sqdiff"] / action_stats[action_key]["n"]
-            ).astype(np.float32)
+            input_std = np.sqrt(action_stats[action_key]["sqdiff"] / action_stats[action_key]["n"]).astype(np.float32)
 
             # ignore input dimensions that is too small to prevent division by zero
             std_eps = 1e-6
@@ -1020,10 +946,6 @@ def action_stats_to_normalization_stats(action_stats, action_config):
                 "offset": input_mean,
             }
         else:
-            raise NotImplementedError(
-                'action_config.actions.normalization: "{}" is not supported'.format(
-                    norm_method
-                )
-            )
+            raise NotImplementedError('action_config.actions.normalization: "{}" is not supported'.format(norm_method))
 
     return action_normalization_stats

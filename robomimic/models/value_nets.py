@@ -66,12 +66,8 @@ class ValueNetwork(MIMO_MLP):
         self.value_bounds = value_bounds
         if self.value_bounds is not None:
             # convert [lb, ub] to a scale and offset for the tanh output, which is in [-1, 1]
-            self._value_scale = (
-                float(self.value_bounds[1]) - float(self.value_bounds[0])
-            ) / 2.0
-            self._value_offset = (
-                float(self.value_bounds[1]) + float(self.value_bounds[0])
-            ) / 2.0
+            self._value_scale = (float(self.value_bounds[1]) - float(self.value_bounds[0])) / 2.0
+            self._value_offset = (float(self.value_bounds[1]) + float(self.value_bounds[0])) / 2.0
 
         assert isinstance(obs_shapes, OrderedDict)
         self.obs_shapes = obs_shapes
@@ -123,9 +119,7 @@ class ValueNetwork(MIMO_MLP):
         """
         Forward through value network, and then optionally use tanh scaling.
         """
-        values = super(ValueNetwork, self).forward(obs=obs_dict, goal=goal_dict)[
-            "value"
-        ]
+        values = super(ValueNetwork, self).forward(obs=obs_dict, goal=goal_dict)["value"]
         if self.value_bounds is not None:
             values = self._value_offset + self._value_scale * torch.tanh(values)
         return values
@@ -325,6 +319,4 @@ class DistributionalActionValueNetwork(ActionValueNetwork):
         return vd.mean()
 
     def _to_string(self):
-        return "action_dim={}\nvalue_bounds={}\nnum_atoms={}".format(
-            self.ac_dim, self.value_bounds, self.num_atoms
-        )
+        return "action_dim={}\nvalue_bounds={}\nnum_atoms={}".format(self.ac_dim, self.value_bounds, self.num_atoms)

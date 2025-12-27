@@ -25,7 +25,5 @@ except ImportError:
     log_warning(
         "No private macro file found!"
         "\nIt is recommended to use a private macro file"
-        "\nTo setup, run: python {}/scripts/setup_macros.py".format(
-            robomimic.__path__[0]
-        )
+        "\nTo setup, run: python {}/scripts/setup_macros.py".format(robomimic.__path__[0])
     )

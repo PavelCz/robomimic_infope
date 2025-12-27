@@ -187,9 +187,7 @@ def test_hbc(silence=True):
         context = silence_stdout() if silence else dummy_context_mgr()
         with context:
             base_config = get_algo_base_config()
-            res_str = TestUtils.test_run(
-                base_config=base_config, config_modifier=MODIFIERS[test_name]
-            )
+            res_str = TestUtils.test_run(base_config=base_config, config_modifier=MODIFIERS[test_name])
         print("{}: {}".format(test_name, res_str))
 
 

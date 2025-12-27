@@ -26,10 +26,10 @@ class IRISConfig(HBCConfig):
         # "planner_only" mode, only the planner is trained.
         self.algo.mode = "separate"
 
-        self.algo.actor_use_random_subgoals = (
-            False  # whether to sample subgoal index from [1, subgoal_horizon]
+        self.algo.actor_use_random_subgoals = False  # whether to sample subgoal index from [1, subgoal_horizon]
+        self.algo.subgoal_update_interval = (
+            10  # how frequently the subgoal should be updated at test-time (usually matches train.seq_length)
         )
-        self.algo.subgoal_update_interval = 10  # how frequently the subgoal should be updated at test-time (usually matches train.seq_length)
 
         # ================== Latent Subgoal Config ==================
 

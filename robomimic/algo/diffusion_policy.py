@@ -54,9 +54,7 @@ class DiffusionPolicyUNet(PolicyAlgo):
         # set up different observation groups for @MIMO_MLP
         observation_group_shapes = OrderedDict()
         observation_group_shapes["obs"] = OrderedDict(self.obs_shapes)
-        encoder_kwargs = ObsUtils.obs_encoder_kwargs_from_config(
-            self.obs_config.encoder
-        )
+        encoder_kwargs = ObsUtils.obs_encoder_kwargs_from_config(self.obs_config.encoder)
 
         obs_encoder = ObsNets.ObservationGroupEncoder(
             observation_group_shapes=observation_group_shapes,
@@ -76,13 +74,7 @@ class DiffusionPolicyUNet(PolicyAlgo):
         )
 
         # the final arch has 2 parts
-        nets = nn.ModuleDict(
-            {
-                "policy": nn.ModuleDict(
-                    {"obs_encoder": obs_encoder, "noise_pred_net": noise_pred_net}
-                )
-            }
-        )
+        nets = nn.ModuleDict({"policy": nn.ModuleDict({"obs_encoder": obs_encoder, "noise_pred_net": noise_pred_net})})
 
         nets = nets.float().to(self.device)
 
@@ -139,9 +131,7 @@ class DiffusionPolicyUNet(PolicyAlgo):
 
         input_batch = dict()
         input_batch["obs"] = {k: batch["obs"][k][:, :To, :] for k in batch["obs"]}
-        input_batch["goal_obs"] = batch.get(
-            "goal_obs", None
-        )  # goals may not be present
+        input_batch["goal_obs"] = batch.get("goal_obs", None)  # goals may not be present
         input_batch["actions"] = batch["actions"][:, :Tp, :]
 
         # check if actions are normalized to [-1,1]
@@ -181,9 +171,7 @@ class DiffusionPolicyUNet(PolicyAlgo):
         B = batch["actions"].shape[0]
 
         with TorchUtils.maybe_no_grad(no_grad=validate):
-            info = super(DiffusionPolicyUNet, self).train_on_batch(
-                batch, epoch, validate=validate
-            )
+            info = super(DiffusionPolicyUNet, self).train_on_batch(batch, epoch, validate=validate)
             actions = batch["actions"]
 
             # encode obs
@@ -215,9 +203,7 @@ class DiffusionPolicyUNet(PolicyAlgo):
             noisy_actions = self.noise_scheduler.add_noise(actions, noise, timesteps)
 
             # predict the noise residual
-            noise_pred = self.nets["policy"]["noise_pred_net"](
-                noisy_actions, timesteps, global_cond=obs_cond
-            )
+            noise_pred = self.nets["policy"]["noise_pred_net"](noisy_actions, timesteps, global_cond=obs_cond)
 
             # L2 loss
             loss = F.mse_loss(noise_pred, noise)
@@ -330,9 +316,7 @@ class DiffusionPolicyUNet(PolicyAlgo):
                 # frame stacking is not invoked when sequence length is 1
                 inputs["obs"][k] = inputs["obs"][k].unsqueeze(1)
             assert inputs["obs"][k].ndim - 2 == len(self.obs_shapes[k])
-        obs_features = TensorUtils.time_distributed(
-            inputs, nets["policy"]["obs_encoder"], inputs_as_kwargs=True
-        )
+        obs_features = TensorUtils.time_distributed(inputs, nets["policy"]["obs_encoder"], inputs_as_kwargs=True)
         assert obs_features.ndim == 3  # [B, T, D]
         B = obs_features.shape[0]
 
@@ -348,14 +332,10 @@ class DiffusionPolicyUNet(PolicyAlgo):
 
         for k in self.noise_scheduler.timesteps:
             # predict noise
-            noise_pred = nets["policy"]["noise_pred_net"](
-                sample=naction, timestep=k, global_cond=obs_cond
-            )
+            noise_pred = nets["policy"]["noise_pred_net"](sample=naction, timestep=k, global_cond=obs_cond)
 
             # inverse diffusion step (remove noise)
-            naction = self.noise_scheduler.step(
-                model_output=noise_pred, timestep=k, sample=naction
-            ).prev_sample
+            naction = self.noise_scheduler.step(model_output=noise_pred, timestep=k, sample=naction).prev_sample
 
         # process action using Ta
         start = To - 1
@@ -371,14 +351,10 @@ class DiffusionPolicyUNet(PolicyAlgo):
             "nets": self.nets.state_dict(),
             "optimizers": {k: self.optimizers[k].state_dict() for k in self.optimizers},
             "lr_schedulers": {
-                k: self.lr_schedulers[k].state_dict()
-                if self.lr_schedulers[k] is not None
-                else None
+                k: self.lr_schedulers[k].state_dict() if self.lr_schedulers[k] is not None else None
                 for k in self.lr_schedulers
             },
-            "ema": self.ema.averaged_model.state_dict()
-            if self.ema is not None
-            else None,
+            "ema": self.ema.averaged_model.state_dict() if self.ema is not None else None,
         }
 
     def deserialize(self, model_dict, load_optimizers=False):
@@ -407,9 +383,7 @@ class DiffusionPolicyUNet(PolicyAlgo):
                 self.optimizers[k].load_state_dict(model_dict["optimizers"][k])
             for k in model_dict["lr_schedulers"]:
                 if model_dict["lr_schedulers"][k] is not None:
-                    self.lr_schedulers[k].load_state_dict(
-                        model_dict["lr_schedulers"][k]
-                    )
+                    self.lr_schedulers[k].load_state_dict(model_dict["lr_schedulers"][k])
 
 
 def replace_submodules(
@@ -430,11 +404,7 @@ def replace_submodules(
     if parse_version(torch.__version__) < parse_version("1.9.0"):
         raise ImportError("This function requires pytorch >= 1.9.0")
 
-    bn_list = [
-        k.split(".")
-        for k, m in root_module.named_modules(remove_duplicate=True)
-        if predicate(m)
-    ]
+    bn_list = [k.split(".") for k, m in root_module.named_modules(remove_duplicate=True) if predicate(m)]
     for *parent, k in bn_list:
         parent_module = root_module
         if len(parent) > 0:
@@ -449,26 +419,18 @@ def replace_submodules(
         else:
             setattr(parent_module, k, tgt_module)
     # verify that all modules are replaced
-    bn_list = [
-        k.split(".")
-        for k, m in root_module.named_modules(remove_duplicate=True)
-        if predicate(m)
-    ]
+    bn_list = [k.split(".") for k, m in root_module.named_modules(remove_duplicate=True) if predicate(m)]
     assert len(bn_list) == 0
     return root_module
 
 
-def replace_bn_with_gn(
-    root_module: nn.Module, features_per_group: int = 16
-) -> nn.Module:
+def replace_bn_with_gn(root_module: nn.Module, features_per_group: int = 16) -> nn.Module:
     """
     Relace all BatchNorm layers with GroupNorm.
     """
     replace_submodules(
         root_module=root_module,
         predicate=lambda x: isinstance(x, nn.BatchNorm2d),
-        func=lambda x: nn.GroupNorm(
-            num_groups=x.num_features // features_per_group, num_channels=x.num_features
-        ),
+        func=lambda x: nn.GroupNorm(num_groups=x.num_features // features_per_group, num_channels=x.num_features),
     )
     return root_module

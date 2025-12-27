@@ -69,9 +69,7 @@ class IQL(PolicyAlgo, ValueAlgo):
             goal_shapes=self.goal_shapes,
             ac_dim=self.ac_dim,
             mlp_layer_dims=self.algo_config.actor.layer_dims,
-            encoder_kwargs=ObsUtils.obs_encoder_kwargs_from_config(
-                self.obs_config.encoder
-            ),
+            encoder_kwargs=ObsUtils.obs_encoder_kwargs_from_config(self.obs_config.encoder),
             **actor_args,
         )
 
@@ -85,9 +83,7 @@ class IQL(PolicyAlgo, ValueAlgo):
                     ac_dim=self.ac_dim,
                     mlp_layer_dims=self.algo_config.critic.layer_dims,
                     goal_shapes=self.goal_shapes,
-                    encoder_kwargs=ObsUtils.obs_encoder_kwargs_from_config(
-                        self.obs_config.encoder
-                    ),
+                    encoder_kwargs=ObsUtils.obs_encoder_kwargs_from_config(self.obs_config.encoder),
                 )
                 net_list.append(critic)
 
@@ -96,9 +92,7 @@ class IQL(PolicyAlgo, ValueAlgo):
             obs_shapes=self.obs_shapes,
             mlp_layer_dims=self.algo_config.critic.layer_dims,
             goal_shapes=self.goal_shapes,
-            encoder_kwargs=ObsUtils.obs_encoder_kwargs_from_config(
-                self.obs_config.encoder
-            ),
+            encoder_kwargs=ObsUtils.obs_encoder_kwargs_from_config(self.obs_config.encoder),
         )
 
         # Send networks to appropriate device
@@ -106,9 +100,7 @@ class IQL(PolicyAlgo, ValueAlgo):
 
         # sync target networks at beginning of training
         with torch.no_grad():
-            for critic, critic_target in zip(
-                self.nets["critic"], self.nets["critic_target"]
-            ):
+            for critic, critic_target in zip(self.nets["critic"], self.nets["critic_target"]):
                 TorchUtils.hard_update(
                     source=critic,
                     target=critic_target,
@@ -131,12 +123,8 @@ class IQL(PolicyAlgo, ValueAlgo):
 
         # remove temporal batches for all
         input_batch["obs"] = {k: batch["obs"][k][:, 0, :] for k in batch["obs"]}
-        input_batch["next_obs"] = {
-            k: batch["next_obs"][k][:, 0, :] for k in batch["next_obs"]
-        }
-        input_batch["goal_obs"] = batch.get(
-            "goal_obs", None
-        )  # goals may not be present
+        input_batch["next_obs"] = {k: batch["next_obs"][k][:, 0, :] for k in batch["next_obs"]}
+        input_batch["goal_obs"] = batch.get("goal_obs", None)  # goals may not be present
         input_batch["actions"] = batch["actions"][:, 0, :]
         input_batch["dones"] = batch["dones"][:, 0]
         input_batch["rewards"] = batch["rewards"][:, 0]
@@ -210,10 +198,7 @@ class IQL(PolicyAlgo, ValueAlgo):
         dones = torch.unsqueeze(batch["dones"], 1)
 
         # Q predictions
-        pred_qs = [
-            critic(obs_dict=obs, acts=actions, goal_dict=goal_obs)
-            for critic in self.nets["critic"]
-        ]
+        pred_qs = [critic(obs_dict=obs, acts=actions, goal_dict=goal_obs) for critic in self.nets["critic"]]
 
         info["critic/critic1_pred"] = pred_qs[0].mean()
 
@@ -224,9 +209,7 @@ class IQL(PolicyAlgo, ValueAlgo):
 
         # Q losses
         critic_losses = []
-        td_loss_fcn = (
-            nn.SmoothL1Loss() if self.algo_config.critic.use_huber else nn.MSELoss()
-        )
+        td_loss_fcn = nn.SmoothL1Loss() if self.algo_config.critic.use_huber else nn.MSELoss()
         for i, q_pred in enumerate(pred_qs):
             # Calculate td error loss
             td_loss = td_loss_fcn(q_pred, q_target)
@@ -234,10 +217,7 @@ class IQL(PolicyAlgo, ValueAlgo):
             critic_losses.append(td_loss)
 
         # V predictions
-        pred_qs = [
-            critic(obs_dict=obs, acts=actions, goal_dict=goal_obs)
-            for critic in self.nets["critic_target"]
-        ]
+        pred_qs = [critic(obs_dict=obs, acts=actions, goal_dict=goal_obs) for critic in self.nets["critic_target"]]
         q_pred, _ = torch.cat(pred_qs, dim=1).min(dim=1, keepdim=True)
         q_pred = q_pred.detach()
         vf_pred = self.nets["vf"](obs_dict=obs, goal_dict=goal_obs)
@@ -245,9 +225,7 @@ class IQL(PolicyAlgo, ValueAlgo):
         # V losses: expectile regression. see section 4.1 in https://arxiv.org/pdf/2110.06169.pdf
         vf_err = vf_pred - q_pred
         vf_sign = (vf_err > 0).float()
-        vf_weight = (1 - vf_sign) * self.algo_config.vf_quantile + vf_sign * (
-            1 - self.algo_config.vf_quantile
-        )
+        vf_weight = (1 - vf_sign) * self.algo_config.vf_quantile + vf_sign * (1 - self.algo_config.vf_quantile)
         vf_loss = (vf_weight * (vf_err**2)).mean()
 
         # update logs for V loss
@@ -284,9 +262,7 @@ class IQL(PolicyAlgo, ValueAlgo):
 
             # update target network
             with torch.no_grad():
-                TorchUtils.soft_update(
-                    source=critic, target=critic_target, tau=self.algo_config.target_tau
-                )
+                TorchUtils.soft_update(source=critic, target=critic_target, tau=self.algo_config.target_tau)
 
         # update V function network
         TorchUtils.backprop_for_loss(
@@ -315,9 +291,7 @@ class IQL(PolicyAlgo, ValueAlgo):
         info = OrderedDict()
 
         # compute log probability of batch actions
-        dist = self.nets["actor"].forward_train(
-            obs_dict=batch["obs"], goal_dict=batch["goal_obs"]
-        )
+        dist = self.nets["actor"].forward_train(obs_dict=batch["obs"], goal_dict=batch["goal_obs"])
         log_prob = dist.log_prob(batch["actions"])
 
         info["actor/log_prob"] = log_prob.mean()

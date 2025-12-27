@@ -12,13 +12,14 @@ from collections import OrderedDict
 
 import h5py
 import numpy as np
+import torch
+from termcolor import colored
+
 import robomimic
 import robomimic.utils.test_utils as TestUtils
 import robomimic.utils.torch_utils as TorchUtils
-import torch
 from robomimic.utils.log_utils import silence_stdout
 from robomimic.utils.torch_utils import dummy_context_mgr
-from termcolor import colored
 
 
 def test_example_script(script_name, args_string, test_name, silence=True):
@@ -30,9 +31,7 @@ def test_example_script(script_name, args_string, test_name, silence=True):
 
     # run example script
     stdout = subprocess.DEVNULL if silence else None
-    path_to_script = os.path.join(
-        robomimic.__path__[0], "../examples/{}".format(script_name)
-    )
+    path_to_script = os.path.join(robomimic.__path__[0], "../examples/{}".format(script_name))
     example_job = subprocess.Popen(
         "python {} {}".format(path_to_script, args_string),
         shell=True,
@@ -45,9 +44,7 @@ def test_example_script(script_name, args_string, test_name, silence=True):
     out, err = example_job.communicate()
     err = err.decode("utf-8")
     if len(err) > 0:
-        ret = "maybe failed - stderr output below (if it's only from tqdm, the test passed)\n{}".format(
-            err
-        )
+        ret = "maybe failed - stderr output below (if it's only from tqdm, the test passed)\n{}".format(err)
         ret = colored(ret, "red")
     else:
         ret = colored("passed", "green")
