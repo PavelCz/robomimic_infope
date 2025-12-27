@@ -9,8 +9,9 @@ If applicable, it creates the private macros at robomimic/macros_private.py
 """
 
 import os
-import robomimic
 import shutil
+
+import robomimic
 
 if __name__ == "__main__":
     base_path = robomimic.__path__[0]
@@ -21,7 +22,9 @@ if __name__ == "__main__":
         print("{} does not exist! Aborting...".format(macros_path))
 
     if os.path.exists(macros_private_path):
-        ans = input("{} already exists! \noverwrite? (y/n)\n".format(macros_private_path))
+        ans = input(
+            "{} already exists! \noverwrite? (y/n)\n".format(macros_private_path)
+        )
 
         if ans == "y":
             print("REMOVING")

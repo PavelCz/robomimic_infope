@@ -5,15 +5,16 @@ for more details.
 """
 
 import math
-import numpy as np
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from robomimic.models.base_nets import Module
 import robomimic.utils.tensor_utils as TensorUtils
 import robomimic.utils.torch_utils as TorchUtils
+from robomimic.models.base_nets import Module
+
 
 class GEGLU(nn.Module):
     """
@@ -118,9 +119,11 @@ class CausalSelfAttention(Module):
         """
         super(CausalSelfAttention, self).__init__()
 
-        assert (
-            embed_dim % num_heads == 0
-        ), "num_heads: {} does not divide embed_dim: {} exactly".format(num_heads, embed_dim)
+        assert embed_dim % num_heads == 0, (
+            "num_heads: {} does not divide embed_dim: {} exactly".format(
+                num_heads, embed_dim
+            )
+        )
 
         self.embed_dim = embed_dim
         self.num_heads = num_heads
@@ -155,10 +158,10 @@ class CausalSelfAttention(Module):
         # enforce shape consistency
         assert len(x.shape) == 3
         B, T, D = x.shape
-        assert (
-            T <= self.context_length
-        ), "self-attention module can only handle sequences up to {} in length but got length {}".format(
-            self.context_length, T
+        assert T <= self.context_length, (
+            "self-attention module can only handle sequences up to {} in length but got length {}".format(
+                self.context_length, T
+            )
         )
         assert D == self.embed_dim
         NH = self.num_heads  # number of attention heads
@@ -277,7 +280,7 @@ class SelfAttentionBlock(Module):
             nn.Linear(embed_dim, 4 * embed_dim * mult),
             activation,
             nn.Linear(4 * embed_dim, embed_dim),
-            nn.Dropout(output_dropout)
+            nn.Dropout(output_dropout),
         )
 
         # layer normalization for inputs to self-attention module and MLP

@@ -16,16 +16,17 @@ Example usage:
     python convert_robosuite.py --dataset /path/to/your/demo.hdf5
 """
 
-import h5py
-import json
 import argparse
+import json
 
+import h5py
 import robomimic.envs.env_base as EB
-from robomimic.scripts.split_train_val import split_train_val_from_hdf5
-from robomimic.scripts.conversion.robosuite_add_absolute_actions import add_absolute_actions_to_dataset
+from robomimic.scripts.conversion.robosuite_add_absolute_actions import (
+    add_absolute_actions_to_dataset,
+)
 from robomimic.scripts.extract_action_dict import extract_action_dict
 from robomimic.scripts.filter_dataset_size import filter_dataset_size
-
+from robomimic.scripts.split_train_val import split_train_val_from_hdf5
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -37,12 +38,12 @@ if __name__ == "__main__":
     parser.add_argument(
         "--filter_num_demos",
         type=int,
-        nargs='+',
+        nargs="+",
         help="Num demos to filter by (can be list)",
     )
     parser.add_argument(
         "--add_absolute_actions",
-        action='store_true',
+        action="store_true",
         help="Set this flag to add absolute actions to the dataset",
     )
     parser.add_argument(
@@ -53,7 +54,7 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    f = h5py.File(args.dataset, "a") # edit mode
+    f = h5py.File(args.dataset, "a")  # edit mode
 
     # store env meta
     env_name = f["data"].attrs.get("env", None)
@@ -108,8 +109,7 @@ if __name__ == "__main__":
 
     # extract corresponding action keys into action_dict
     extract_action_dict(
-        dataset=args.dataset, 
-        add_absolute_actions=args.add_absolute_actions
+        dataset=args.dataset, add_absolute_actions=args.add_absolute_actions
     )
 
     # create filter keys according to number of demos

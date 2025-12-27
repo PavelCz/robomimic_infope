@@ -1,25 +1,23 @@
 """
-WARNING: This script is only for instructive purposes, and is missing several useful 
-         components used during training such as logging and rollout evaluation. 
+WARNING: This script is only for instructive purposes, and is missing several useful
+         components used during training such as logging and rollout evaluation.
 
 Example script for demonstrating how the SequenceDataset class and a training loop
 can interact. This is meant to help others who would like to use our provided
 datasets and dataset class in other applications.
 """
+
 import numpy as np
-
-import torch
-from torch.utils.data import DataLoader
-
 import robomimic
-import robomimic.utils.obs_utils as ObsUtils
-import robomimic.utils.torch_utils as TorchUtils
-import robomimic.utils.test_utils as TestUtils
 import robomimic.utils.file_utils as FileUtils
-from robomimic.utils.dataset import SequenceDataset
-
-from robomimic.config import config_factory
+import robomimic.utils.obs_utils as ObsUtils
+import robomimic.utils.test_utils as TestUtils
+import robomimic.utils.torch_utils as TorchUtils
+import torch
 from robomimic.algo import algo_factory
+from robomimic.config import config_factory
+from robomimic.utils.dataset import SequenceDataset
+from torch.utils.data import DataLoader
 
 
 def get_data_loader(dataset_path):
@@ -31,30 +29,30 @@ def get_data_loader(dataset_path):
     """
     dataset = SequenceDataset(
         hdf5_path=dataset_path,
-        obs_keys=(                      # observations we want to appear in batches
-            "robot0_eef_pos", 
-            "robot0_eef_quat", 
-            "robot0_gripper_qpos", 
+        obs_keys=(  # observations we want to appear in batches
+            "robot0_eef_pos",
+            "robot0_eef_quat",
+            "robot0_gripper_qpos",
             "object",
         ),
-        action_keys=("actions",),       # actions we want to appear in batches
-        dataset_keys=(                  # can optionally specify more keys here if they should appear in batches
-            "actions", 
-            "rewards", 
+        action_keys=("actions",),  # actions we want to appear in batches
+        dataset_keys=(  # can optionally specify more keys here if they should appear in batches
+            "actions",
+            "rewards",
             "dones",
         ),
         action_config={"actions": {}},  # use default action config
         load_next_obs=True,
         frame_stack=1,
-        seq_length=10,                  # length-10 temporal sequences
+        seq_length=10,  # length-10 temporal sequences
         pad_frame_stack=True,
-        pad_seq_length=True,            # pad last obs per trajectory to ensure all sequences are sampled
+        pad_seq_length=True,  # pad last obs per trajectory to ensure all sequences are sampled
         get_pad_mask=False,
         goal_mode=None,
-        hdf5_cache_mode="all",          # cache dataset in memory to avoid repeated file i/o
+        hdf5_cache_mode="all",  # cache dataset in memory to avoid repeated file i/o
         hdf5_use_swmr=True,
         hdf5_normalize_obs=False,
-        filter_by_attribute=None,       # can optionally provide a filter key here
+        filter_by_attribute=None,  # can optionally provide a filter key here
     )
     print("\n============= Created Dataset =============")
     print(dataset)
@@ -62,11 +60,11 @@ def get_data_loader(dataset_path):
 
     data_loader = DataLoader(
         dataset=dataset,
-        sampler=None,       # no custom sampling logic (uniform sampling)
-        batch_size=100,     # batches of size 100
+        sampler=None,  # no custom sampling logic (uniform sampling)
+        batch_size=100,  # batches of size 100
         shuffle=True,
         num_workers=0,
-        drop_last=True      # don't provide last batch in dataset pass if it's less than 100 in size
+        drop_last=True,  # don't provide last batch in dataset pass if it's less than 100 in size
     )
     return data_loader
 
@@ -87,14 +85,16 @@ def get_example_model(dataset_path, device):
 
     # read dataset to get some metadata for constructing model
     shape_meta = FileUtils.get_shape_metadata_from_dataset(
-        dataset_config=config.train.data[0], 
+        dataset_config=config.train.data[0],
         action_keys=config.train.action_keys,
-        all_obs_keys=sorted((
-            "robot0_eef_pos", 
-            "robot0_eef_quat", 
-            "robot0_gripper_qpos", 
-            "object",
-        )),
+        all_obs_keys=sorted(
+            (
+                "robot0_eef_pos",
+                "robot0_eef_quat",
+                "robot0_gripper_qpos",
+                "object",
+            )
+        ),
     )
 
     # make BC model
@@ -114,7 +114,11 @@ def print_batch_info(batch):
         if k in ["obs", "next_obs"]:
             print("key {}".format(k))
             for obs_key in batch[k]:
-                print("    obs key {} with shape {}".format(obs_key, batch[k][obs_key].shape))
+                print(
+                    "    obs key {} with shape {}".format(
+                        obs_key, batch[k][obs_key].shape
+                    )
+                )
         else:
             print("key {} with shape {}".format(k, batch[k].shape))
     print("")
@@ -137,8 +141,7 @@ def run_train_loop(model, data_loader):
     # ensure model is in train mode
     model.set_train()
 
-    for epoch in range(1, num_epochs + 1): # epoch numbers start at 1
-
+    for epoch in range(1, num_epochs + 1):  # epoch numbers start at 1
         # iterator for data_loader - it yields batches
         data_loader_iter = iter(data_loader)
 
@@ -146,7 +149,6 @@ def run_train_loop(model, data_loader):
         losses = []
 
         for _ in range(gradient_steps_per_epoch):
-
             # load next batch from data loader
             try:
                 batch = next(data_loader_iter)
@@ -161,7 +163,9 @@ def run_train_loop(model, data_loader):
 
             # process batch for training
             input_batch = model.process_batch_for_training(batch)
-            input_batch = model.postprocess_batch_for_training(input_batch, obs_normalization_stats=None)
+            input_batch = model.postprocess_batch_for_training(
+                input_batch, obs_normalization_stats=None
+            )
 
             # forward and backward pass
             info = model.train_on_batch(batch=input_batch, epoch=epoch, validate=False)
@@ -177,7 +181,6 @@ def run_train_loop(model, data_loader):
 
 
 if __name__ == "__main__":
-
     # small dataset with a handful of trajectories
     dataset_path = TestUtils.example_dataset_path()
 
