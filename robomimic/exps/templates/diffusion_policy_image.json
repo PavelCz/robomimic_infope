@@ -1,7 +1,7 @@
 {
     "algo_name": "diffusion_policy",
     "experiment": {
-        "name": "test",
+        "name": "determined-in-script",
         "validate": false,
         "logging": {
             "terminal_output_to_txt": true,
@@ -12,7 +12,7 @@
         "save": {
             "enabled": true,
             "every_n_seconds": null,
-            "every_n_epochs": 50,
+            "every_n_epochs": 20,
             "epochs": [],
             "on_best_validation": false,
             "on_best_rollout_return": false,
@@ -28,9 +28,9 @@
         "video_skip": 5,
         "rollout": {
             "enabled": true,
-            "n": 3,
+            "n": 20,
             "horizon": 400,
-            "rate": 5,
+            "rate": 20,
             "warmstart": 0,
             "terminate_on_success": true
         },
@@ -44,7 +44,7 @@
         "num_data_workers": 0,
         "hdf5_cache_mode": "low_dim",
         "hdf5_use_swmr": true,
-        "hdf5_load_next_obs": true,
+        "hdf5_load_next_obs": false,
         "hdf5_normalize_obs": false,
         "hdf5_filter_key": null,
         "hdf5_validation_filter_key": null,
@@ -68,7 +68,7 @@
         "goal_mode": null,
         "cuda": true,
         "batch_size": 16,
-        "num_epochs": 2000,
+        "num_epochs": 700,
         "seed": 1,
         "max_grad_norm": null
     },
@@ -199,4 +199,3 @@
         "hp_values": []
     }
 }
-

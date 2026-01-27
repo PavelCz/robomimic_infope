@@ -25,6 +25,8 @@ import time
 import traceback
 from collections import OrderedDict
 
+os.environ["MUJOCO_GL"] = "egl"
+
 import numpy as np
 import psutil
 import torch
@@ -41,7 +43,7 @@ from robomimic.config import config_factory
 from robomimic.utils.log_utils import DataLogger, PrintLogger, flush_warnings
 
 
-def train(config, device, resume=False):
+def train(config, device, resume=False, disable_wandb=False):
     """
     Train a model using the algorithm.
     """
@@ -66,6 +68,8 @@ def train(config, device, resume=False):
         logger = PrintLogger(os.path.join(log_dir, "log.txt"))
         sys.stdout = logger
         sys.stderr = logger
+
+    # * setup metadata for env and dataset
 
     # read config to set up metadata for observation modalities (e.g. detecting rgb observations)
     ObsUtils.initialize_obs_utils_with_config(config)
@@ -111,7 +115,7 @@ def train(config, device, resume=False):
         env_meta_list = [env_meta]
         print("=" * 30 + "\n" + "Replacing Env to {}\n".format(env_meta["env_name"]) + "=" * 30)
 
-    # create environment
+    # * create environment
     envs = OrderedDict()
     if config.experiment.rollout.enabled:
         # create environments for validation runs
@@ -158,7 +162,7 @@ def train(config, device, resume=False):
 
     print("")
 
-    # load training data
+    # * load training data
     trainset, validset = TrainUtils.load_data_for_training(config, obs_keys=shape_meta["all_obs_keys"])
     train_sampler = trainset.get_dataset_sampler()
     print("\n============= Training Dataset =============")
@@ -233,12 +237,14 @@ def train(config, device, resume=False):
                     )
                     config.algo["value_planner"][sub_algo].optim_params[k]["num_epochs"] = config.train.num_epochs
 
-    # setup for a new training run
+    # * create data logger and model:
+    # can either start anew, resume from latest, or load from specified checkpoint
     data_logger = DataLogger(
         log_dir,
         config,
         log_tb=config.experiment.logging.log_tb,
         log_wandb=config.experiment.logging.log_wandb,
+        disable_wandb=disable_wandb,
     )
     model = algo_factory(
         algo_name=config.algo_name,
@@ -289,7 +295,7 @@ def train(config, device, resume=False):
     print("*" * 50)
     print("")
 
-    # main training loop
+    # * main training loop
     best_valid_loss = None
     best_return = {k: -np.inf for k in envs} if config.experiment.rollout.enabled else None
     best_success_rate = {k: -1.0 for k in envs} if config.experiment.rollout.enabled else None
@@ -319,7 +325,7 @@ def train(config, device, resume=False):
         )
         model.on_epoch_end(epoch)
 
-        # setup checkpoint path
+        # * setup checkpoint path
         epoch_ckpt_name = "model_epoch_{}".format(epoch)
 
         # check for recurring checkpoint saving conditions
@@ -348,7 +354,7 @@ def train(config, device, resume=False):
             else:
                 data_logger.record("Train/{}".format(k), v, epoch)
 
-        # Evaluate the model on validation set
+        # * Evaluate the model on validation set
         if config.experiment.validate:
             with torch.no_grad():
                 step_log = TrainUtils.run_epoch(
@@ -377,11 +383,11 @@ def train(config, device, resume=False):
                     should_save_ckpt = True
                     ckpt_reason = "valid" if ckpt_reason is None else ckpt_reason
 
-        # Evaluate the model by by running rollouts
-
+        # * Evaluate the model by by running rollouts
         # do rollouts at fixed rate or if it's time to save a new ckpt
         video_paths = None
         rollout_check = (epoch % config.experiment.rollout.rate == 0) or (should_save_ckpt and ckpt_reason == "time")
+        rollout_check = True if epoch == 1 else rollout_check  # rollout on first epoch
         if config.experiment.rollout.enabled and (epoch > config.experiment.rollout.warmstart) and rollout_check:
             # wrap model as a RolloutPolicy to prepare for rollouts
             rollout_model = RolloutPolicy(
@@ -404,7 +410,7 @@ def train(config, device, resume=False):
                 terminate_on_success=config.experiment.rollout.terminate_on_success,
             )
 
-            # summarize results from rollouts to tensorboard and terminal
+            # * summarize results from rollouts to tensorboard and terminal
             for env_name in all_rollout_logs:
                 rollout_logs = all_rollout_logs[env_name]
                 for k, v in rollout_logs.items():
@@ -452,7 +458,7 @@ def train(config, device, resume=False):
             best_success_rate=best_success_rate,
         )
 
-        # Save model checkpoints based on conditions (success rate, validation loss, etc)
+        # * Save model checkpoints based on conditions (success rate, validation loss, etc)
         if should_save_ckpt:
             TrainUtils.save_model(
                 model=model,
@@ -506,8 +512,13 @@ def main(args):
     if args.dataset is not None:
         config.train.data = [{"path": args.dataset}]
 
-    if args.name is not None:
-        config.experiment.name = args.name
+    # .../robomimic0.5/lift/mh/image_v15.hdf5 -> lift/mh/image_v15
+    ds_name = args.dataset.split("robomimic0.5/")[1].split(".hdf5")[0]
+    ds_name = ds_name.replace("/", "-").replace("_", "-")
+    config.experiment.name = f"{config.algo_name}_{ds_name}_Ta={config.algo.horizon.action_horizon}"
+
+    # if args.name is not None:
+    #     config.experiment.name = args.name
 
     # get torch device
     device = TorchUtils.get_torch_device(try_to_use_cuda=config.train.cuda)
@@ -537,7 +548,7 @@ def main(args):
     # catch error during training and print it
     res_str = "finished run successfully!"
     try:
-        train(config, device=device, resume=args.resume)
+        train(config, device=device, resume=args.resume, disable_wandb=args.debug)
     except Exception as e:
         res_str = "run failed with error:\n{}\n\n{}".format(e, traceback.format_exc())
     print(res_str)
@@ -563,6 +574,7 @@ if __name__ == "__main__":
     )
 
     # Experiment Name (for tensorboard, saving models, etc.)
+    #! not used. delete?
     parser.add_argument(
         "--name",
         type=str,

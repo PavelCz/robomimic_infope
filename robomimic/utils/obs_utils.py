@@ -303,7 +303,7 @@ def batch_image_hwc_to_chw(im):
         im (np.array or torch.Tensor): image of shape (batch, channel, height, width)
             or (channel, height, width)
     """
-    start_dims = np.arange(len(im.shape) - 3).tolist()
+    start_dims = np.arange(len(im.shape) - 3).tolist()  # [0,1] for (B,@frame_stack,H,W,C)
     s = start_dims[-1] if len(start_dims) > 0 else -1
     if isinstance(im, np.ndarray):
         return im.transpose(start_dims + [s + 3, s + 1, s + 2])
