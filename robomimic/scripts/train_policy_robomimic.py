@@ -163,7 +163,14 @@ def train(config, device, resume=False, disable_wandb=False):
     print("")
 
     # * load training data
-    trainset, validset = TrainUtils.load_data_for_training(config, obs_keys=shape_meta["all_obs_keys"])
+    ope_kwargs = dict(
+        dinov3_embedding_path=config.train.get("dinov3_embedding_path", None),
+        target_actions_path=config.train.get("target_actions_path", None),
+        compute_mc_return=False,
+    )
+    trainset, validset = TrainUtils.load_data_for_training(
+        config, obs_keys=shape_meta["all_obs_keys"], ope_kwargs=ope_kwargs
+    )
     train_sampler = trainset.get_dataset_sampler()
     print("\n============= Training Dataset =============")
     print(trainset)
@@ -383,7 +390,7 @@ def train(config, device, resume=False, disable_wandb=False):
                     should_save_ckpt = True
                     ckpt_reason = "valid" if ckpt_reason is None else ckpt_reason
 
-        # * Evaluate the model by by running rollouts
+        # * Evaluate the model by running rollouts
         # do rollouts at fixed rate or if it's time to save a new ckpt
         video_paths = None
         rollout_check = (epoch % config.experiment.rollout.rate == 0) or (should_save_ckpt and ckpt_reason == "time")

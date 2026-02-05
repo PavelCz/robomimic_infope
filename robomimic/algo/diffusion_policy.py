@@ -188,7 +188,7 @@ class DiffusionPolicyUNet(PolicyAlgo):
             obs_cond = obs_features.flatten(start_dim=1)
 
             # sample noise to add to actions
-            noise = torch.randn(actions.shape, device=self.device)
+            noise = torch.randn(actions.shape, device=self.device)  # (B, Tp, A)
 
             # sample a diffusion iteration for each data point
             timesteps = torch.randint(
@@ -274,8 +274,8 @@ class DiffusionPolicyUNet(PolicyAlgo):
         Ta = self.algo_config.horizon.action_horizon
 
         if len(self.action_queue) == 0:
-            # no actions left, run inference
-            # [1,T,Da]
+            # no actions left in chunk, run denoising inference
+            # [1,Ta,Da]
             action_sequence = self._get_action_trajectory(obs_dict=obs_dict)
 
             # put actions into the queue
@@ -287,6 +287,22 @@ class DiffusionPolicyUNet(PolicyAlgo):
 
         # [1,Da]
         action = action.unsqueeze(0)
+        return action
+
+    def get_batched_actions(self, obs_dict, goal_dict=None):
+        """
+        Get policy action outputs for a batch of observations.
+        """
+        if len(self.action_queue) == 0:
+            # no actions left in chunk, run denoising inference
+            # [B,Ta,Da]
+            action_sequence = self._get_action_trajectory(obs_dict=obs_dict)  # (B,Ta,Da)
+
+            # put actions into the queue
+            self.action_queue.append(action_sequence)
+
+        action = self.action_queue.popleft()
+
         return action
 
     def _get_action_trajectory(self, obs_dict, goal_dict=None):
@@ -307,20 +323,25 @@ class DiffusionPolicyUNet(PolicyAlgo):
         if self.ema is not None:
             nets = self.ema.averaged_model
 
-        # encode obs
+        # obs shape check
         inputs = {"obs": obs_dict, "goal": goal_dict}
         for k in self.obs_shapes:
-            # first two dimensions should be [B, T] for inputs
+            # first two dimensions should be [B, To] for inputs
+            # self.obs_shapes[k] does not include B and To dimension
+            # - 1 is needed since inputs["obs"][k] is already unsqueezed
             if inputs["obs"][k].ndim - 1 == len(self.obs_shapes[k]):
                 # adding time dimension if not present -- this is required as
                 # frame stacking is not invoked when sequence length is 1
                 inputs["obs"][k] = inputs["obs"][k].unsqueeze(1)
             assert inputs["obs"][k].ndim - 2 == len(self.obs_shapes[k])
+
+        # encode obs
+        # (B, To, *D_obs) -> (B * To, *D_obs) -> (B * To, D) -> (B, To, D)
         obs_features = TensorUtils.time_distributed(inputs, nets["policy"]["obs_encoder"], inputs_as_kwargs=True)
-        assert obs_features.ndim == 3  # [B, T, D]
+        assert obs_features.ndim == 3  # [B, To, D]
         B = obs_features.shape[0]
 
-        # reshape observation to (B,obs_horizon*obs_dim)
+        # reshape obs: (B, To, D) -> (B, To * D)
         obs_cond = obs_features.flatten(start_dim=1)
 
         # initialize action from Guassian noise
@@ -337,10 +358,10 @@ class DiffusionPolicyUNet(PolicyAlgo):
             # inverse diffusion step (remove noise)
             naction = self.noise_scheduler.step(model_output=noise_pred, timestep=k, sample=naction).prev_sample
 
-        # process action using Ta
+        # process action using Ta: see Figure 2. of Chi et al. 2023 for index alignment
         start = To - 1
         end = start + Ta
-        action = naction[:, start:end]
+        action = naction[:, start:end]  # (B, Tp, Da) -> (B, Ta, Da)
         return action
 
     def serialize(self):

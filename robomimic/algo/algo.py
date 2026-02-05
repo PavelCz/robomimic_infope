@@ -588,11 +588,14 @@ class RolloutPolicy(object):
                 and np.array values for each key)
             goal (dict): goal observation
             batched_ob (bool): whether the input is already batched
+
+        Returns:
+            ac (torch.Tensor): action tensor
         """
         ob = self._prepare_observation(ob, batched_ob=batched_ob)
         if goal is not None:
             goal = self._prepare_observation(goal, batched_ob=batched_ob)
-        ac = self.policy.get_action(obs_dict=ob, goal_dict=goal)
+        ac = self.policy.get_action(obs_dict=ob, goal_dict=goal)  # normalized (Da,)
         if not batched_ob:
             ac = ac[0]
         ac = TensorUtils.to_numpy(ac)
