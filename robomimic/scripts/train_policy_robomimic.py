@@ -163,11 +163,7 @@ def train(config, device, resume=False, disable_wandb=False):
     print("")
 
     # * load training data
-    ope_kwargs = dict(
-        dinov3_embedding_path=config.train.get("dinov3_embedding_path", None),
-        target_actions_path=config.train.get("target_actions_path", None),
-        compute_mc_return=False,
-    )
+    ope_kwargs = dict(dinov3_embedding_path=None, target_actions_path=None)
     trainset, validset = TrainUtils.load_data_for_training(
         config, obs_keys=shape_meta["all_obs_keys"], ope_kwargs=ope_kwargs
     )
@@ -547,7 +543,7 @@ def main(args):
         config.experiment.rollout.horizon = 10
 
         # send output to a temporary directory
-        config.train.output_dir = "/tmp/tmp_trained_models"
+        config.train.output_dir = "/scr/yutaizho/.tmp/tmp_trained_models"
 
     # lock config to prevent further modifications and ensure missing keys raise errors
     config.lock()
