@@ -8,6 +8,8 @@ import random
 from collections import OrderedDict
 from contextlib import contextmanager
 from copy import deepcopy
+from pathlib import Path
+from typing import List, Optional
 
 import h5py
 import numpy as np
@@ -28,19 +30,29 @@ class SequenceDataset(torch.utils.data.Dataset):
         action_keys,
         dataset_keys,
         action_config,
-        frame_stack=1,
-        seq_length=1,
-        pad_frame_stack=True,
-        pad_seq_length=True,
-        get_pad_mask=False,
-        goal_mode=None,
-        hdf5_cache_mode=None,
-        hdf5_use_swmr=True,
-        hdf5_normalize_obs=False,
-        filter_by_attribute=None,
+        frame_stack: int = 1,
+        seq_length: int = 1,
+        pad_frame_stack: bool = True,
+        pad_seq_length: bool = True,
+        get_pad_mask: bool = False,
+        goal_mode: Optional[str] = None,
+        hdf5_cache_mode: Optional[str] = None,
+        hdf5_use_swmr: bool = True,
+        hdf5_normalize_obs: bool = False,
+        filter_by_attribute: Optional[str] = None,
         load_next_obs=True,
         lang=None,
-        demo_limit=None,
+        demo_limit: int = None,
+        # * OPE kwargs
+        # for dinov3 embeddings of image obs
+        dinov3_embedding_path: Optional[Path] = None,
+        cache_embeddings: bool = False,
+        skip_images: bool = False,
+        # for target actions
+        target_actions_paths: Optional[List[Path]] = None,
+        # for reward modifications
+        reward_type: Optional[str] = None,  # None / "sparse" / "shifted"
+        shifted_reward_success_window: int = 3,  # only used for shifted / sparse reward
     ):
         """
         Dataset class for fetching sequences of experience.
@@ -59,11 +71,11 @@ class SequenceDataset(torch.utils.data.Dataset):
 
             seq_length (int): length of sequences to sample. Defaults to 1 (single frame).
 
-            pad_frame_stack (int): whether to pad sequence for frame stacking at the beginning of a demo. This
+            pad_frame_stack (bool): whether to pad sequence for frame stacking at the beginning of a demo. This
                 ensures that partial frame stacks are observed, such as (s_0, s_0, s_0, s_1). Otherwise, the
                 first frame stacked observation would be (s_0, s_1, s_2, s_3).
 
-            pad_seq_length (int): whether to pad sequence for sequence fetching at the end of a demo. This
+            pad_seq_length (bool): whether to pad sequence for sequence fetching at the end of a demo. This
                 ensures that partial sequences at the end of a demonstration are observed, such as
                 (s_{T-1}, s_{T}, s_{T}, s_{T}). Otherwise, the last sequence provided would be
                 (s_{T-3}, s_{T-2}, s_{T-1}, s_{T}).
@@ -71,7 +83,7 @@ class SequenceDataset(torch.utils.data.Dataset):
             get_pad_mask (bool): if True, also provide padding masks as part of the batch. This can be
                 useful for masking loss functions on padded parts of the data.
 
-            goal_mode (str): either "last" or None. Defaults to None, which is to not fetch goals
+            goal_mode (str | None): either "last" or None. Defaults to None, which is to not fetch goals
 
             hdf5_cache_mode (str): one of ["all", "low_dim", or None]. Set to "all" to cache entire hdf5
                 in memory - this is by far the fastest for data loading. Set to "low_dim" to cache all
@@ -107,6 +119,16 @@ class SequenceDataset(torch.utils.data.Dataset):
 
         self.load_next_obs = load_next_obs
         self.filter_by_attribute = filter_by_attribute
+        self.dinov3_embedding_path = dinov3_embedding_path
+        if target_actions_paths is not None and isinstance(target_actions_paths, Path):
+            # convert single path to list
+            target_actions_paths = [target_actions_paths]
+        self.target_actions_paths = target_actions_paths
+        self._dinov3_embedding_file = None  # h5 handle for dinov3 embeddings
+        self._target_actions_files = None  # h5 handles for target actions
+        self.reward_type = reward_type  # for offline RL algs like CalQL
+        assert self.reward_type in [None, "sparse", "shifted"]
+        self.shifted_reward_success_window = shifted_reward_success_window
 
         # set up lang and language embedding
         self.lang = lang
@@ -121,6 +143,13 @@ class SequenceDataset(torch.utils.data.Dataset):
         # add action keys to dataset keys
         if self.action_keys is not None:
             self.dataset_keys = tuple(set(self.dataset_keys).union(set(self.action_keys)))
+        if self.target_actions_paths is not None:
+            # next_target_actions for FQE update; target_actions for FQE debug
+            self.dataset_keys = (*self.dataset_keys, "target_actions", "next_target_actions")
+            self.n_target_policies = len(self.target_actions_paths)
+        if self.dinov3_embedding_path is not None:
+            self.cache_embeddings = cache_embeddings
+        self.skip_images = skip_images
 
         self.action_config = action_config
 
@@ -203,18 +232,17 @@ class SequenceDataset(torch.utils.data.Dataset):
         else:
             self.demos = list(self.hdf5_file["data"].keys())
 
-        # sort demo keys
+        # sort demo keys (e.g."demo_0"), limit number of demos
         inds = np.argsort([int(elem[5:]) for elem in self.demos])
         self.demos = [self.demos[i] for i in inds]
 
-        # limit number of demos
         if demo_limit is not None:
             self.demos = self.demos[:demo_limit]
 
         self.n_demos = len(self.demos)
 
-        # keep internal index maps to know which transitions belong to which demos
-        self._index_to_demo_id = dict()  # maps every index to a demo id
+        # * keep internal index maps to know which transitions belong to which demos
+        self._index_to_demo_id = dict()  # maps every sample index to a demo id
         self._demo_id_to_start_indices = dict()  # gives start index per demo id
         self._demo_id_to_demo_length = dict()
 
@@ -251,6 +279,28 @@ class SequenceDataset(torch.utils.data.Dataset):
             self._hdf5_file = h5py.File(self.hdf5_path, "r", swmr=self.hdf5_use_swmr, libver="latest")
         return self._hdf5_file
 
+    @property
+    def dinov3_file(self):
+        if self.dinov3_embedding_path is not None:
+            if self._dinov3_embedding_file is None:
+                self._dinov3_embedding_file = h5py.File(
+                    self.dinov3_embedding_path, "r", swmr=self.hdf5_use_swmr, libver="latest"
+                )
+            return self._dinov3_embedding_file
+        else:
+            raise ValueError("dinov3_embedding_path is not set")
+
+    @property
+    def target_actions_files(self):
+        if self.target_actions_paths is not None:
+            if self._target_actions_files is None:
+                self._target_actions_files = [
+                    h5py.File(path, "r", swmr=self.hdf5_use_swmr, libver="latest") for path in self.target_actions_paths
+                ]
+            return self._target_actions_files
+        else:
+            raise ValueError("target_actions_path is not set")
+
     def close_and_delete_hdf5_handle(self):
         """
         Maybe close the file handle.
@@ -258,6 +308,15 @@ class SequenceDataset(torch.utils.data.Dataset):
         if self._hdf5_file is not None:
             self._hdf5_file.close()
         self._hdf5_file = None
+
+        if self._dinov3_embedding_file is not None:
+            self._dinov3_embedding_file.close()
+        self._dinov3_embedding_file = None
+
+        if self._target_actions_files is not None:
+            for file in self._target_actions_files:
+                file.close()
+        self._target_actions_files = None
 
     @contextmanager
     def hdf5_file_opened(self):
@@ -321,7 +380,7 @@ class SequenceDataset(torch.utils.data.Dataset):
             load_next_obs (bool): whether to load next_obs from the dataset
 
         Returns:
-            all_data (dict): dictionary of loaded data.
+            all_data (dict): dictionary of memory-loaded data.
         """
         all_data = dict()
         print("SequenceDataset: loading dataset into memory...")
@@ -329,17 +388,52 @@ class SequenceDataset(torch.utils.data.Dataset):
             all_data[ep] = {}
             all_data[ep]["attrs"] = {}
             all_data[ep]["attrs"]["num_samples"] = hdf5_file["data/{}".format(ep)].attrs["num_samples"]
-            # get obs
+            # * get obs
             all_data[ep]["obs"] = {k: hdf5_file["data/{}/obs/{}".format(ep, k)][()] for k in obs_keys}
             if load_next_obs:
                 all_data[ep]["next_obs"] = {k: hdf5_file["data/{}/next_obs/{}".format(ep, k)][()] for k in obs_keys}
-            # get other dataset keys
+            # * get other dataset keys: actions, rewards, dones, returns
             for k in dataset_keys:
+                if k == "next_target_actions" or k == "target_actions":
+                    h5_key = f"{ep}/next_actions" if k == "next_target_actions" else f"{ep}/actions"
+                    actions = [self.target_actions_files[i][h5_key][()] for i in range(self.n_target_policies)]
+                    all_data[ep][k] = np.stack(actions, axis=-1)  # (TT, n_actions, A, n_policies)
+                    continue
                 if k in hdf5_file["data/{}".format(ep)]:
                     all_data[ep][k] = hdf5_file["data/{}/{}".format(ep, k)][()].astype("float32")
                 else:
                     all_data[ep][k] = np.zeros((all_data[ep]["attrs"]["num_samples"], 1), dtype=np.float32)
 
+            # * transform rewards, compute returns
+            rewards = all_data[ep]["rewards"]
+            if self.reward_type is not None:
+                # ignores robomimic rewards and use custom-specified rewards instead
+                T = len(rewards)
+                dones = all_data[ep]["dones"]
+                first_done_idx = np.flatnonzero(dones == 1)[0]
+                H = T - first_done_idx
+                if self.reward_type == "sparse":
+                    rewards = np.zeros(T)
+                    rewards[-H:] = 1.0
+                elif self.reward_type == "shifted":
+                    rewards = np.ones(T) * -1.0
+                    rewards[-H:] = 0.0
+                else:
+                    raise ValueError(f"Invalid reward type: {self.reward_type}")
+                all_data[ep]["rewards"] = rewards
+            all_data[ep]["returns"] = np.cumsum(rewards[::-1])[::-1]
+
+            # * get dinov3 embeddings
+            if self.dinov3_embedding_path is not None and self.cache_embeddings:
+                rgb_keys = ["agentview_image", "robot0_eye_in_hand_image"]
+                all_data[ep]["obs_embeddings"] = {}
+                if self.load_next_obs:
+                    all_data[ep]["next_obs_embeddings"] = {}
+
+                for key in rgb_keys:
+                    all_data[ep]["obs_embeddings"][key] = self.dinov3_file[f"{ep}/obs/{key}"][()]
+                    if self.load_next_obs:
+                        all_data[ep]["next_obs_embeddings"][key] = self.dinov3_file[f"{ep}/next_obs/{key}"][()]
             if "model_file" in hdf5_file["data/{}".format(ep)].attrs:
                 all_data[ep]["attrs"]["model_file"] = hdf5_file["data/{}".format(ep)].attrs["model_file"]
 
@@ -387,7 +481,7 @@ class SequenceDataset(torch.utils.data.Dataset):
         assert self.hdf5_normalize_obs, "not using observation normalization!"
         return deepcopy(self.obs_normalization_stats)
 
-    def get_action_traj(self, ep):
+    def get_action_traj(self, ep: str):
         action_traj = dict()
         for key in self.action_keys:
             action_traj[key] = self.hdf5_file["data/{}/{}".format(ep, key)][()].astype("float32")
@@ -420,37 +514,51 @@ class SequenceDataset(torch.utils.data.Dataset):
             self.action_normalization_stats = action_stats_to_normalization_stats(action_stats, self.action_config)
         return self.action_normalization_stats
 
-    def get_dataset_for_ep(self, ep, key):
+    def get_dataset_for_ep(self, ep: str, key: str):
         """
-        Helper utility to get a dataset for a specific demonstration.
+        Helper utility to get a dataset of entire trajectory for a specific demonstration.
         Takes into account whether the dataset has been loaded into memory.
+
+        Args:
+            ep (str): the demonstration ID
+            key (str): the key of the dataset to get
+                e.g. 'actions', 'rewards', '
+
         """
 
-        # check if this key should be in memory
+        if "dinov3_embedding" in key:
+            # expects key e.g., 'dinov3_embedding/obs_embeddings/agentview_image'
+            _, key1, key2 = key.split("/")  # e.g. 'dinov3_embedding','obs_embeddings','agentview_image'
+            if not self.cache_embeddings:
+                key1 = key1.split("_embeddings")[0]  # obs_embeddings -> obs
+                return self.dinov3_file[f"{ep}/{key1}/{key2}"][()]  # (traj_len, D)
+            else:
+                return self.hdf5_cache[ep][key1][key2]
+
+        # check if @key should be in memory
         key_should_be_in_memory = self.hdf5_cache_mode in ["all", "low_dim"]
         if key_should_be_in_memory:
             # if key is an observation, it may not be in memory
             if "/" in key:
-                key1, key2 = key.split("/")
+                key1, key2 = key.split("/")  # e.g. 'obs/agentview_image'
                 assert key1 in ["obs", "next_obs", "action_dict"]
                 if key2 not in self.obs_keys_in_memory:
                     key_should_be_in_memory = False
 
-        if key_should_be_in_memory:
-            # read cache
+        # cache-aware reading
+        if key_should_be_in_memory:  # read from cache if available
             if "/" in key:
-                key1, key2 = key.split("/")
+                key1, key2 = key.split("/")  # e.g. 'obs/agentview_image'
                 assert key1 in ["obs", "next_obs", "action_dict"]
                 ret = self.hdf5_cache[ep][key1][key2]
             else:
                 ret = self.hdf5_cache[ep][key]
-        else:
-            # read from file
+        else:  # read from file
             hd5key = "data/{}/{}".format(ep, key)
             ret = self.hdf5_file[hd5key]
         return ret
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: int):
         """
         Fetch dataset sequence @index (inferred through internal index map), using the getitem_cache if available.
         """
@@ -461,7 +569,7 @@ class SequenceDataset(torch.utils.data.Dataset):
 
         return output
 
-    def get_item(self, index):
+    def get_item(self, index: int):
         """
         Main implementation of getitem when not using cache.
         """
@@ -485,41 +593,83 @@ class SequenceDataset(torch.utils.data.Dataset):
             num_frames_to_stack=self.n_frame_stack - 1,  # note: need to decrement self.n_frame_stack by one
             seq_length=self.seq_length,
         )
+        # load both next_target_actions and target_actions for OPE
+        # ! todo: not a good idea to have randomness here?
+        if "next_target_actions" in self.dataset_keys:
+            TT, n_actions, _, n_policies = meta["next_target_actions"].shape  # (TT, n_actions, A, n_policies, )
+            act_inds = np.random.randint(0, n_actions, size=(TT,), dtype=np.int32)
+            policy_ind = np.random.randint(0, n_policies, dtype=np.int32)
+
+            selected_target_nacts = meta["next_target_actions"][np.arange(TT), act_inds, :, policy_ind]
+            meta["next_target_actions"] = selected_target_nacts  # (TT, A)
+            if "target_actions" in self.dataset_keys:
+                selected_target_acts = meta["target_actions"][np.arange(TT), act_inds, :, policy_ind]
+                meta["target_actions"] = selected_target_acts
+            meta["policy_id"] = np.array(policy_ind)
 
         # determine goal index
         goal_index = None
         if self.goal_mode == "last":
             goal_index = end_index_in_demo - 1
 
-        meta["obs"] = self.get_obs_sequence_from_demo(
-            demo_id,
-            index_in_demo=index_in_demo,
-            keys=self.obs_keys,
-            num_frames_to_stack=self.n_frame_stack - 1,
-            seq_length=self.seq_length,
-            prefix="obs",
-        )
-
-        if self.load_next_obs:
-            meta["next_obs"] = self.get_obs_sequence_from_demo(
+        if not self.skip_images:  # speedup if working only with precomputed embeddings
+            meta["obs"] = self.get_obs_sequence_from_demo(
                 demo_id,
                 index_in_demo=index_in_demo,
                 keys=self.obs_keys,
-                num_frames_to_stack=self.n_frame_stack - 1,
+                num_frames_to_stack=self.n_frame_stack - 1,  # note: need to decrement self.n_frame_stack by one
                 seq_length=self.seq_length,
-                prefix="next_obs",
+                prefix="obs",
             )
 
-        if goal_index is not None:
-            goal = self.get_obs_sequence_from_demo(
+            if self.load_next_obs:
+                meta["next_obs"] = self.get_obs_sequence_from_demo(
+                    demo_id,
+                    index_in_demo=index_in_demo,
+                    keys=self.obs_keys,
+                    num_frames_to_stack=self.n_frame_stack - 1,  # note: need to decrement self.n_frame_stack by one
+                    seq_length=self.seq_length,
+                    prefix="next_obs",
+                )
+
+            if goal_index is not None:
+                goal = self.get_obs_sequence_from_demo(
+                    demo_id,
+                    index_in_demo=goal_index,
+                    keys=self.obs_keys,
+                    num_frames_to_stack=0,
+                    seq_length=1,
+                    prefix="next_obs",
+                )
+                meta["goal_obs"] = {k: goal[k][0] for k in goal}  # remove sequence dimension for goal
+
+        if self.dinov3_embedding_path is not None:
+            rgb_keys = ["agentview_image", "robot0_eye_in_hand_image"]
+            meta["embeddings"] = {}
+            meta["embeddings"]["obs"] = {}
+            obs_embds = self.get_obs_sequence_from_demo(
                 demo_id,
-                index_in_demo=goal_index,
-                keys=self.obs_keys,
-                num_frames_to_stack=0,
-                seq_length=1,
-                prefix="next_obs",
-            )
-            meta["goal_obs"] = {k: goal[k][0] for k in goal}  # remove sequence dimension for goal
+                index_in_demo=index_in_demo,
+                keys=rgb_keys,
+                num_frames_to_stack=self.n_frame_stack - 1,  # note: need to decrement self.n_frame_stack by one
+                seq_length=self.seq_length,
+                prefix="dinov3_embedding/obs_embeddings",
+            )  # e.g. x["obs_embeddings/agentview_image"]
+            for key in rgb_keys:
+                meta["embeddings"]["obs"][key] = obs_embds[f"obs_embeddings/{key}"]
+
+            if self.load_next_obs:
+                meta["embeddings"]["next_obs"] = {}
+                next_obs_embds = self.get_obs_sequence_from_demo(
+                    demo_id,
+                    index_in_demo=index_in_demo,
+                    keys=rgb_keys,
+                    num_frames_to_stack=self.n_frame_stack - 1,  # note: need to decrement self.n_frame_stack by one
+                    seq_length=self.seq_length,
+                    prefix="dinov3_embedding/next_obs_embeddings",
+                )
+                for key in rgb_keys:
+                    meta["embeddings"]["next_obs"][key] = next_obs_embds[f"next_obs_embeddings/{key}"]
 
         # get action components
         ac_dict = OrderedDict()
@@ -537,8 +687,10 @@ class SequenceDataset(torch.utils.data.Dataset):
         # concatenate all action components
         meta["actions"] = PyUtils.action_dict_to_vector(ac_dict)
 
-        # also return the sampled index
+        # also return transition & demo information
         meta["index"] = index
+        meta["ep"] = demo_id
+        meta["index_in_demo"] = index_in_demo
 
         # language embedding
         if self._lang_emb is not None:
@@ -547,7 +699,83 @@ class SequenceDataset(torch.utils.data.Dataset):
 
         return meta
 
-    def get_sequence_from_demo(self, demo_id, index_in_demo, keys, num_frames_to_stack=0, seq_length=1):
+    def get_dataset_sequence_from_demo(
+        self,
+        demo_id: str,
+        index_in_demo: int,
+        keys: tuple,
+        num_frames_to_stack: int = 0,
+        seq_length: int = 1,
+    ):
+        """
+        Extract a (sub)sequence of dataset items from a demo given the @keys of the items (e.g., states, actions).
+
+        Args:
+            demo_id (str): id of the demo, e.g., demo_0
+            index_in_demo (int): beginning index of the sequence wrt the demo
+            keys (tuple): list of keys to extract
+            num_frames_to_stack (int): numbers of frame to stack. Seq gets prepended with repeated items if out of range
+            seq_length (int): sequence length to extract. Seq gets post-pended with repeated items if out of range
+
+        Returns:
+            a dictionary of extracted items.
+        """
+        data, pad_mask = self.get_sequence_from_demo(
+            demo_id,
+            index_in_demo=index_in_demo,
+            keys=keys,
+            num_frames_to_stack=num_frames_to_stack,
+            seq_length=seq_length,
+        )
+        if self.get_pad_mask:
+            data["pad_mask"] = pad_mask
+        return data
+
+    def get_obs_sequence_from_demo(
+        self,
+        demo_id: str,
+        index_in_demo: int,
+        keys: tuple,
+        num_frames_to_stack: int = 0,
+        seq_length: int = 1,
+        prefix: str = "obs",
+    ):
+        """
+        Extract a (sub)sequence of observation items from a demo given the @keys of the items.
+
+        Args:
+            demo_id (str): id of the demo, e.g., demo_0
+            index_in_demo (int): beginning index of the sequence wrt the demo
+            keys (tuple): list of keys to extract
+            num_frames_to_stack (int): numbers of frame to stack. Seq gets prepended with repeated items if out of range
+            seq_length (int): sequence length to extract. Seq gets post-pended with repeated items if out of range
+            prefix (str): one of "obs", "next_obs"
+
+        Returns:
+            a dictionary of extracted items.
+        """
+        obs, pad_mask = self.get_sequence_from_demo(
+            demo_id,
+            index_in_demo=index_in_demo,
+            keys=tuple("{}/{}".format(prefix, k) for k in keys),
+            num_frames_to_stack=num_frames_to_stack,
+            seq_length=seq_length,
+        )
+        # strip the first prefix, e.g. 'obs/agentview_image' -> 'agentview_image'
+        obs = {"/".join(k.split("/")[1:]): obs[k] for k in obs}
+        if self.get_pad_mask:
+            obs["pad_mask"] = pad_mask
+
+        return obs
+
+    def get_sequence_from_demo(
+        self,
+        demo_id: str,
+        index_in_demo: int,
+        keys: tuple,
+        num_frames_to_stack: int = 0,
+        seq_length: int = 1,
+    ):
         """
         Extract a (sub)sequence of data items from a demo given the @keys of the items.
 
@@ -556,6 +784,8 @@ class SequenceDataset(torch.utils.data.Dataset):
             index_in_demo (int): beginning index of the sequence wrt the demo
             keys (tuple): list of keys to extract
             num_frames_to_stack (int): numbers of frame to stack. Seq gets prepended with repeated items if out of range
+                note that num_frames_to_stack is the number of *additional* frames to stack before the current index.
+                While @config.train.frame_stack is the observation window length.
             seq_length (int): sequence length to extract. Seq gets post-pended with repeated items if out of range
 
         Returns:
@@ -593,73 +823,12 @@ class SequenceDataset(torch.utils.data.Dataset):
 
         return seq, pad_mask
 
-    def get_obs_sequence_from_demo(
-        self,
-        demo_id,
-        index_in_demo,
-        keys,
-        num_frames_to_stack=0,
-        seq_length=1,
-        prefix="obs",
-    ):
-        """
-        Extract a (sub)sequence of observation items from a demo given the @keys of the items.
-
-        Args:
-            demo_id (str): id of the demo, e.g., demo_0
-            index_in_demo (int): beginning index of the sequence wrt the demo
-            keys (tuple): list of keys to extract
-            num_frames_to_stack (int): numbers of frame to stack. Seq gets prepended with repeated items if out of range
-            seq_length (int): sequence length to extract. Seq gets post-pended with repeated items if out of range
-            prefix (str): one of "obs", "next_obs"
-
-        Returns:
-            a dictionary of extracted items.
-        """
-        obs, pad_mask = self.get_sequence_from_demo(
-            demo_id,
-            index_in_demo=index_in_demo,
-            keys=tuple("{}/{}".format(prefix, k) for k in keys),
-            num_frames_to_stack=num_frames_to_stack,
-            seq_length=seq_length,
-        )
-        obs = {"/".join(k.split("/")[1:]): obs[k] for k in obs}  # strip the prefix
-        if self.get_pad_mask:
-            obs["pad_mask"] = pad_mask
-
-        return obs
-
-    def get_dataset_sequence_from_demo(self, demo_id, index_in_demo, keys, num_frames_to_stack=0, seq_length=1):
-        """
-        Extract a (sub)sequence of dataset items from a demo given the @keys of the items (e.g., states, actions).
-
-        Args:
-            demo_id (str): id of the demo, e.g., demo_0
-            index_in_demo (int): beginning index of the sequence wrt the demo
-            keys (tuple): list of keys to extract
-            num_frames_to_stack (int): numbers of frame to stack. Seq gets prepended with repeated items if out of range
-            seq_length (int): sequence length to extract. Seq gets post-pended with repeated items if out of range
-
-        Returns:
-            a dictionary of extracted items.
-        """
-        data, pad_mask = self.get_sequence_from_demo(
-            demo_id,
-            index_in_demo=index_in_demo,
-            keys=keys,
-            num_frames_to_stack=num_frames_to_stack,
-            seq_length=seq_length,
-        )
-        if self.get_pad_mask:
-            data["pad_mask"] = pad_mask
-        return data
-
-    def get_trajectory_at_index(self, index):
+    def get_trajectory(self, traj_index: int):
         """
         Method provided as a utility to get an entire trajectory, given
         the corresponding @index.
         """
-        demo_id = self.demos[index]
+        demo_id = self.demos[traj_index]
         demo_length = self._demo_id_to_demo_length[demo_id]
 
         meta = self.get_dataset_sequence_from_demo(
@@ -670,7 +839,10 @@ class SequenceDataset(torch.utils.data.Dataset):
             seq_length=demo_length,
         )
         meta["obs"] = self.get_obs_sequence_from_demo(
-            demo_id, index_in_demo=0, keys=self.obs_keys, seq_length=demo_length
+            demo_id,
+            index_in_demo=0,
+            keys=self.obs_keys,
+            seq_length=demo_length,
         )
         if self.load_next_obs:
             meta["next_obs"] = self.get_obs_sequence_from_demo(
@@ -682,6 +854,74 @@ class SequenceDataset(torch.utils.data.Dataset):
             )
 
         meta["ep"] = demo_id
+        return meta
+
+    def get_trajectory_at_step(self, traj_index: int, step: int = 0):
+        """
+        Method provided as a utility to get the state at a specific step of a trajectory,
+        given @traj_index and @step.
+
+        """
+        demo_id = self.demos[traj_index]
+        length = self._demo_id_to_demo_length[demo_id]
+        # support negative step indexing
+        assert (step < length) and (-step <= length)
+        index_in_demo = step if step >= 0 else length + step
+
+        meta = self.get_dataset_sequence_from_demo(
+            demo_id,
+            index_in_demo=index_in_demo,
+            keys=self.dataset_keys,
+            num_frames_to_stack=self.n_frame_stack - 1,  # note: need to decrement self.n_frame_stack by one
+            seq_length=1,
+        )
+        meta["obs"] = self.get_obs_sequence_from_demo(
+            demo_id,
+            index_in_demo=index_in_demo,
+            keys=self.obs_keys,
+            num_frames_to_stack=self.n_frame_stack - 1,
+            seq_length=1,
+        )
+        if self.load_next_obs:
+            meta["next_obs"] = self.get_obs_sequence_from_demo(
+                demo_id,
+                index_in_demo=index_in_demo,
+                keys=self.obs_keys,
+                num_frames_to_stack=self.n_frame_stack - 1,
+                seq_length=1,
+                prefix="next_obs",
+            )
+
+        if self.dinov3_embedding_path is not None:
+            rgb_keys = ["agentview_image", "robot0_eye_in_hand_image"]
+            meta["embeddings"] = {}
+            meta["embeddings"]["obs"] = {}
+            obs_embds = self.get_obs_sequence_from_demo(
+                demo_id,
+                index_in_demo=index_in_demo,
+                keys=rgb_keys,
+                num_frames_to_stack=self.n_frame_stack - 1,
+                seq_length=1,
+                prefix="dinov3_embedding/obs_embeddings",
+            )  # e.g. x["obs_embeddings/agentview_embedding"]
+            for key in rgb_keys:
+                meta["embeddings"]["obs"][key] = obs_embds[f"obs_embeddings/{key}"]
+
+            if self.load_next_obs:
+                meta["embeddings"]["next_obs"] = {}
+                next_obs_embds = self.get_obs_sequence_from_demo(
+                    demo_id,
+                    index_in_demo=index_in_demo,
+                    keys=rgb_keys,
+                    num_frames_to_stack=self.n_frame_stack - 1,
+                    seq_length=1,
+                    prefix="dinov3_embedding/next_obs_embeddings",
+                )
+                for key in rgb_keys:
+                    meta["embeddings"]["next_obs"][key] = next_obs_embds[f"next_obs_embeddings/{key}"]
+
+        meta["ep"] = demo_id
+        meta["index_in_demo"] = index_in_demo
         return meta
 
     def get_dataset_sampler(self):
