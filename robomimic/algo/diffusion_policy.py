@@ -289,21 +289,20 @@ class DiffusionPolicyUNet(PolicyAlgo):
         action = action.unsqueeze(0)
         return action
 
-    def get_batched_actions(self, obs_dict, goal_dict=None):
+    def get_batched_actions(self, obs_dict, goal_dict=None, n_actions=1):
         """
-        Get policy action outputs for a batch of observations.
+        Get multiple policy action outputs for each element of a batch of observations.
+        Useful for precomputing multiple next_target_actions for OPE.
+
+        Currently only supports Ta=1.
         """
-        if len(self.action_queue) == 0:
-            # no actions left in chunk, run denoising inference
-            # [B,Ta,Da]
-            action_sequence = self._get_action_trajectory(obs_dict=obs_dict)  # (B,Ta,Da)
-
-            # put actions into the queue
-            self.action_queue.append(action_sequence)
-
-        action = self.action_queue.popleft()
-
-        return action
+        feats = self._get_feature_encoding(obs_dict, goal_dict)  # (B, To * D)
+        actions_list = []
+        for _ in range(n_actions):
+            action = self._run_denoising_from_feature_encoding(feats)  # (B, Ta, Da)
+            actions_list.append(action)
+        actions = torch.stack(actions_list, dim=1)  # (B, n_actions, Ta, Da)
+        return actions
 
     def _get_action_trajectory(self, obs_dict, goal_dict=None):
         assert not self.nets.training
@@ -344,6 +343,93 @@ class DiffusionPolicyUNet(PolicyAlgo):
         # reshape obs: (B, To, D) -> (B, To * D)
         obs_cond = obs_features.flatten(start_dim=1)
 
+        # initialize action from Guassian noise
+        noisy_action = torch.randn((B, Tp, action_dim), device=self.device)
+        naction = noisy_action
+
+        # init scheduler
+        self.noise_scheduler.set_timesteps(num_inference_timesteps)
+
+        for k in self.noise_scheduler.timesteps:
+            # predict noise
+            noise_pred = nets["policy"]["noise_pred_net"](sample=naction, timestep=k, global_cond=obs_cond)
+
+            # inverse diffusion step (remove noise)
+            naction = self.noise_scheduler.step(model_output=noise_pred, timestep=k, sample=naction).prev_sample
+
+        # process action using Ta: see Figure 2. of Chi et al. 2023 for index alignment
+        start = To - 1
+        end = start + Ta
+        action = naction[:, start:end]  # (B, Tp, Da) -> (B, Ta, Da)
+        return action
+
+    def _get_feature_encoding(self, obs_dict, goal_dict=None):
+        """
+        Get feature encoding of observations right before denoising inference.
+        Useful for precomputing multiple next_target_actions for OPE, since
+        feat encoding is deterministic and needs to be ran once,
+        while denoising inference is stochastic.
+
+        Output:
+        - obs_cond: (B, To * D) flattened observation features
+        """
+        # select network
+        nets = self.nets
+        if self.ema is not None:
+            nets = self.ema.averaged_model
+
+        # obs shape check
+        inputs = {"obs": obs_dict, "goal": goal_dict}
+        for k in self.obs_shapes:
+            # first two dimensions should be [B, To] for inputs
+            # self.obs_shapes[k] does not include B and To dimension
+            # - 1 is needed since inputs["obs"][k] is already unsqueezed
+            if inputs["obs"][k].ndim - 1 == len(self.obs_shapes[k]):
+                # adding time dimension if not present -- this is required as
+                # frame stacking is not invoked when sequence length is 1
+                inputs["obs"][k] = inputs["obs"][k].unsqueeze(1)
+            assert inputs["obs"][k].ndim - 2 == len(self.obs_shapes[k])
+
+        # encode obs
+        # (B, To, *D_obs) -> (B * To, *D_obs) -> (B * To, D) -> (B, To, D)
+        obs_features = TensorUtils.time_distributed(inputs, nets["policy"]["obs_encoder"], inputs_as_kwargs=True)
+        assert obs_features.ndim == 3  # [B, To, D]
+
+        # reshape obs: (B, To, D) -> (B, To * D)
+        obs_cond = obs_features.flatten(start_dim=1)
+
+        return obs_cond
+
+    def _run_denoising_from_feature_encoding(self, obs_cond):
+        """
+        Run denoising inference from feature encoding.
+
+        Args:
+            obs_cond: (B, To * D) flattened observation features
+
+        Returns:
+            action: (B, Ta, Da) denoised action sequence
+        """
+        assert not self.nets.training
+        assert obs_cond.ndim == 2, "obs_cond must be flattened (B, To * D)"
+
+        To = self.algo_config.horizon.observation_horizon
+        Ta = self.algo_config.horizon.action_horizon
+        Tp = self.algo_config.horizon.prediction_horizon
+        action_dim = self.ac_dim
+        if self.algo_config.ddpm.enabled is True:
+            num_inference_timesteps = self.algo_config.ddpm.num_inference_timesteps
+        elif self.algo_config.ddim.enabled is True:
+            num_inference_timesteps = self.algo_config.ddim.num_inference_timesteps
+        else:
+            raise ValueError
+
+        # select network
+        nets = self.nets
+        if self.ema is not None:
+            nets = self.ema.averaged_model
+
+        B = obs_cond.shape[0]
         # initialize action from Guassian noise
         noisy_action = torch.randn((B, Tp, action_dim), device=self.device)
         naction = noisy_action
