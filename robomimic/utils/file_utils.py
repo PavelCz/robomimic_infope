@@ -21,7 +21,8 @@ import robomimic.utils.env_utils as EnvUtils
 import robomimic.utils.lang_utils as LangUtils
 import robomimic.utils.obs_utils as ObsUtils
 import robomimic.utils.torch_utils as TorchUtils
-from robomimic.algo import RolloutPolicy, algo_factory
+
+# from robomimic.algo import RolloutPolicy, algo_factory
 from robomimic.config import config_factory
 
 
@@ -434,6 +435,8 @@ def policy_from_checkpoint(device=None, ckpt_path=None, ckpt_dict=None, verbose=
         device = TorchUtils.get_torch_device(try_to_use_cuda=config.train.cuda)
 
     # create model and load weights
+    from robomimic.algo import RolloutPolicy, algo_factory
+
     model = algo_factory(
         algo_name,
         config,
@@ -562,7 +565,7 @@ def download_url(url, download_dir, check_overwrite=True):
     # we ask the user to verify that they want to overwrite the file
     if check_overwrite and os.path.exists(file_to_write):
         user_response = input(f"Warning: file {file_to_write} already exists. Overwrite? y/n\n")
-        assert user_response.lower() in {"yes", "y"}, f"Did not receive confirmation. Aborting download."
+        assert user_response.lower() in {"yes", "y"}, "Did not receive confirmation. Aborting download."
 
     with DownloadProgressBar(unit="B", unit_scale=True, miniters=1, desc=fname) as t:
         urllib.request.urlretrieve(url, filename=file_to_write, reporthook=t.update_to)
@@ -589,7 +592,7 @@ def download_file_from_hf(repo_id, filename, download_dir, check_overwrite=True)
         file_to_write = os.path.join(download_dir, os.path.basename(filename))
         if check_overwrite and os.path.exists(file_to_write):
             user_response = input(f"Warning: file {file_to_write} already exists. Overwrite? y/n\n")
-            assert user_response.lower() in {"yes", "y"}, f"Did not receive confirmation. Aborting download."
+            assert user_response.lower() in {"yes", "y"}, "Did not receive confirmation. Aborting download."
 
         # note: fpath is a pointer, so we need to look up the actual path on disk and then move it
         fpath = hf_hub_download(repo_id=repo_id, filename=filename, repo_type="dataset", cache_dir=td)

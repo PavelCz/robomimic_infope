@@ -39,13 +39,24 @@ class PrintLogger(object):
         # ensure stdout gets flushed
         self.terminal.flush()
 
+    def isatty(self):
+        return self.terminal.isatty()
+
 
 class DataLogger(object):
     """
     Logging class to log metrics to tensorboard and/or retrieve running statistics about logged data.
     """
 
-    def __init__(self, log_dir, config, log_tb=True, log_wandb=False):
+    def __init__(
+        self,
+        log_dir,
+        config,
+        log_tb=True,
+        log_wandb=False,
+        # run_name: Optional[str] = None,
+        disable_wandb=False,
+    ):
         """
         Args:
             log_dir (str): base path to store logs
@@ -84,12 +95,17 @@ class DataLogger(object):
                     # set up wandb
                     self._wandb_logger = wandb
 
+                    wandb_mode = "offline" if attempt == num_attempts - 1 else "online"
+                    wandb_mode = "disabled" if disable_wandb else wandb_mode
+                    #! adding timestamp separately - train.py already adds timestamp to the experiment outputdir name
                     self._wandb_logger.init(
                         entity=Macros.WANDB_ENTITY,
                         project=config.experiment.logging.wandb_proj_name,
                         name=config.experiment.name,
+                        # name=f"{config.experiment.name}_{datetime.now().strftime('%Y%m%d%H%M%S')}",
                         dir=log_dir,
-                        mode=("offline" if attempt == num_attempts - 1 else "online"),
+                        mode=wandb_mode,
+                        config=config.to_dict(),  # BaseConfig.to_dict()
                     )
 
                     # set up info for identifying experiment
@@ -98,7 +114,8 @@ class DataLogger(object):
                         wandb_config[k] = v
                     if "algo" not in wandb_config:
                         wandb_config["algo"] = config.algo_name
-                    self._wandb_logger.config.update(wandb_config)
+                    #! commenting out cuz i don't use sweeps but still want cfg logging
+                    # self._wandb_logger.config.update(wandb_config)
 
                     break
                 except Exception as e:

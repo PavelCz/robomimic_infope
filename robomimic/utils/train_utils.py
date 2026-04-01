@@ -28,7 +28,12 @@ from robomimic.envs.wrappers import EnvWrapper
 from robomimic.utils.dataset import MetaDataset, SequenceDataset
 
 
-def get_exp_dir(config, auto_remove_exp_dir=False, resume=False):
+def get_exp_dir(
+    config,
+    auto_remove_exp_dir=False,
+    resume=False,
+    # time_str: Optional[str] = None,
+):
     """
     Create experiment directory from config. If an identical experiment directory
     exists and @auto_remove_exp_dir is False (default), the function will prompt
@@ -49,8 +54,11 @@ def get_exp_dir(config, auto_remove_exp_dir=False, resume=False):
             to store rollout videos
     """
     # timestamp for directory names
+    # if time_str is None:
     t_now = time.time()
     time_str = datetime.datetime.fromtimestamp(t_now).strftime("%Y%m%d%H%M%S")
+    # else:
+    #     assert isinstance(time_str, str), "time_str must be a string"
 
     # create directory for where to dump model parameters, tensorboard logs, and videos
     base_output_dir = os.path.expanduser(config.train.output_dir)
@@ -58,6 +66,8 @@ def get_exp_dir(config, auto_remove_exp_dir=False, resume=False):
         # relative paths are specified relative to robomimic module location
         base_output_dir = os.path.join(robomimic.__path__[0], base_output_dir)
     base_output_dir = os.path.join(base_output_dir, config.experiment.name)
+
+    # maybe resume training from existing checkpoint
     if resume:
         assert os.path.exists(base_output_dir), "Resuming training run, but output dir {} does not exist".format(
             base_output_dir
@@ -67,11 +77,17 @@ def get_exp_dir(config, auto_remove_exp_dir=False, resume=False):
         assert os.path.isdir(os.path.join(base_output_dir, time_str)), (
             "Found item {} that is not a subdirectory in {}".format(time_str, base_output_dir)
         )
+        print(f"Resuming training run from {os.path.join(base_output_dir, time_str)}")
     elif os.path.exists(base_output_dir):
-        if not auto_remove_exp_dir:
-            ans = input("WARNING: model directory ({}) already exists! \noverwrite? (y/n)\n".format(base_output_dir))
-        else:
-            ans = "y"
+        # if not auto_remove_exp_dir:
+        #     ans = input(
+        #         "WARNING: model directory ({}) already exists! \noverwrite? (y/n)\n".format(
+        #             base_output_dir
+        #         )
+        #     )
+        # else:
+        #     ans = "y"
+        ans = "n"
         if ans == "y":
             print("REMOVING")
             shutil.rmtree(base_output_dir)
@@ -95,7 +111,7 @@ def get_exp_dir(config, auto_remove_exp_dir=False, resume=False):
     return log_dir, output_dir, video_dir, time_dir
 
 
-def load_data_for_training(config, obs_keys):
+def load_data_for_training(config, obs_keys, ope_kwargs):
     """
     Data loading at the start of an algorithm.
 
@@ -141,16 +157,28 @@ def load_data_for_training(config, obs_keys):
             assert set(train_demo_keys).isdisjoint(set(valid_demo_keys)), (
                 "training demonstrations overlap with validation demonstrations!"
             )
-        train_dataset = dataset_factory(config, obs_keys, filter_by_attribute=train_filter_by_attribute)
-        valid_dataset = dataset_factory(config, obs_keys, filter_by_attribute=valid_filter_by_attribute)
+        train_dataset = dataset_factory(
+            config, obs_keys, filter_by_attribute=train_filter_by_attribute, ope_kwargs=ope_kwargs
+        )
+        valid_dataset = dataset_factory(
+            config, obs_keys, filter_by_attribute=valid_filter_by_attribute, ope_kwargs=ope_kwargs
+        )
     else:
-        train_dataset = dataset_factory(config, obs_keys, filter_by_attribute=train_filter_by_attribute)
+        train_dataset = dataset_factory(
+            config, obs_keys, filter_by_attribute=train_filter_by_attribute, ope_kwargs=ope_kwargs
+        )
         valid_dataset = None
 
     return train_dataset, valid_dataset
 
 
-def dataset_factory(config, obs_keys, filter_by_attribute=None, dataset_path=None):
+def dataset_factory(
+    config,
+    obs_keys,
+    filter_by_attribute=None,
+    dataset_path=None,
+    ope_kwargs=None,
+):
     """
     Create a SequenceDataset instance to pass to a torch DataLoader.
 
@@ -197,6 +225,7 @@ def dataset_factory(config, obs_keys, filter_by_attribute=None, dataset_path=Non
         hdf5_use_swmr=config.train.hdf5_use_swmr,
         hdf5_normalize_obs=config.train.hdf5_normalize_obs,
         filter_by_attribute=filter_by_attribute,
+        **ope_kwargs,
     )
 
     ds_kwargs["hdf5_path"] = [ds_cfg["path"] for ds_cfg in config.train.data]
@@ -703,7 +732,7 @@ def run_epoch(
     start_time = time.time()
 
     data_loader_iter = iter(data_loader)
-    for _ in LogUtils.custom_tqdm(range(num_steps)):
+    for _ in LogUtils.custom_tqdm(range(num_steps), disable=None):
         # load next batch from data loader
         try:
             t = time.time()
