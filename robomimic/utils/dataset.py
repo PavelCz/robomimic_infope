@@ -392,7 +392,7 @@ class SequenceDataset(torch.utils.data.Dataset):
             all_data[ep]["obs"] = {k: hdf5_file["data/{}/obs/{}".format(ep, k)][()] for k in obs_keys}
             if load_next_obs:
                 all_data[ep]["next_obs"] = {k: hdf5_file["data/{}/next_obs/{}".format(ep, k)][()] for k in obs_keys}
-            # * get other dataset keys: actions, rewards, dones, returns
+            # * get other dataset keys: actions, rewards, dones, mc_returns
             for k in dataset_keys:
                 if k == "next_target_actions" or k == "target_actions":
                     h5_key = f"{ep}/next_actions" if k == "next_target_actions" else f"{ep}/actions"
@@ -404,7 +404,7 @@ class SequenceDataset(torch.utils.data.Dataset):
                 else:
                     all_data[ep][k] = np.zeros((all_data[ep]["attrs"]["num_samples"], 1), dtype=np.float32)
 
-            # * transform rewards, compute returns
+            # * transform rewards, compute mc_returns
             rewards = all_data[ep]["rewards"]
             if self.reward_type is not None:
                 # ignores robomimic rewards and use custom-specified rewards instead
@@ -421,7 +421,7 @@ class SequenceDataset(torch.utils.data.Dataset):
                 else:
                     raise ValueError(f"Invalid reward type: {self.reward_type}")
                 all_data[ep]["rewards"] = rewards
-            all_data[ep]["returns"] = np.cumsum(rewards[::-1])[::-1]
+            all_data[ep]["mc_returns"] = np.cumsum(rewards[::-1])[::-1]
 
             # * get dinov3 embeddings
             if self.dinov3_embedding_path is not None and self.cache_embeddings:
